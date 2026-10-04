@@ -51,7 +51,20 @@ export const BulkSheetStage: React.FC<BulkSheetStageProps> = ({
       ? layout.pageBgColor || '#ffffff'
       : 'transparent';
 
-  const totalSheets = Math.max(1, Math.ceil(bulkQrs.length / SHEET_TOTAL_SLOTS));
+  const cols = config.sheetCols || SHEET_COLS;
+  const rows = config.sheetRows || SHEET_ROWS;
+  const totalSlotsPerSheet = cols * rows;
+
+  const cardW = layout.cardWidth || SHEET_CELL_WIDTH_INCH;
+  const cardH = layout.cardHeight || SHEET_CELL_HEIGHT_INCH;
+
+  const sheetW = config.sheetWidthInch || Number((cols * cardW).toFixed(4));
+  const sheetH = config.sheetHeightInch || Number((rows * cardH).toFixed(4));
+
+  const cellW = Number((sheetW / cols).toFixed(4));
+  const cellH = Number((sheetH / rows).toFixed(4));
+
+  const totalSheets = Math.max(1, Math.ceil(bulkQrs.length / totalSlotsPerSheet));
   const activeSheet = config.activeSheetIndex;
 
   return (
@@ -61,17 +74,17 @@ export const BulkSheetStage: React.FC<BulkSheetStageProps> = ({
         className="flex items-center justify-center shrink-0"
         style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
       >
-        {/* The 46.2" × 80.4444" Bulk Sheet Container */}
+        {/* Bulk Sheet Container */}
         <div
           id="printable-bulk-sheet"
           className="relative select-none shadow-2xl transition-all"
           style={{
-            width: `${SHEET_WIDTH_INCH}in`,
-            height: `${SHEET_HEIGHT_INCH}in`,
-            minWidth: `${SHEET_WIDTH_INCH}in`,
-            minHeight: `${SHEET_HEIGHT_INCH}in`,
-            maxWidth: `${SHEET_WIDTH_INCH}in`,
-            maxHeight: `${SHEET_HEIGHT_INCH}in`,
+            width: `${sheetW}in`,
+            height: `${sheetH}in`,
+            minWidth: `${sheetW}in`,
+            minHeight: `${sheetH}in`,
+            maxWidth: `${sheetW}in`,
+            maxHeight: `${sheetH}in`,
             backgroundColor: effectiveBgColor,
             boxSizing: 'border-box',
           }}
@@ -80,11 +93,11 @@ export const BulkSheetStage: React.FC<BulkSheetStageProps> = ({
           <div className="absolute top-3 left-3 z-30 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-950/90 backdrop-blur-md border border-slate-800 text-xs font-mono text-slate-200 shadow-xl pointer-events-none print:hidden print-hide">
             <Maximize2 className="w-3.5 h-3.5 text-indigo-400" />
             <span className="font-semibold text-white">
-              {SHEET_WIDTH_INCH}&quot; × {SHEET_HEIGHT_INCH}&quot;
+              {sheetW}&quot; × {sheetH}&quot;
             </span>
             <span className="text-slate-500">|</span>
             <span className="text-emerald-400">
-              11 Cols × 12 Rows (132 Cards)
+              {cols} Cols × {rows} Rows ({totalSlotsPerSheet} Cards)
             </span>
             <span className="text-slate-500">|</span>
             <span className="text-indigo-300">
@@ -129,30 +142,30 @@ export const BulkSheetStage: React.FC<BulkSheetStageProps> = ({
                 type="button"
                 onClick={onLoadSample132}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-medium transition cursor-pointer"
-                title="Populate 132 sample QR codes to test grid layout immediately"
+                title="Populate sample QR codes to test grid layout immediately"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>Load 132 Sample QRs</span>
+                <span>Load Sample QRs</span>
               </button>
             )}
           </div>
 
-          {/* 11 Columns × 12 Rows Grid */}
+          {/* Dynamic Columns × Rows Grid */}
           <div
             className={`w-full h-full grid ${
               config.showCutGuides ? 'border-t-2 border-l-2 border-dashed border-slate-500/85' : ''
             }`}
             style={{
-              gridTemplateColumns: `repeat(${SHEET_COLS}, ${SHEET_CELL_WIDTH_INCH}in)`,
-              gridTemplateRows: `repeat(${SHEET_ROWS}, ${SHEET_CELL_HEIGHT_INCH}in)`,
+              gridTemplateColumns: `repeat(${cols}, ${cellW}in)`,
+              gridTemplateRows: `repeat(${rows}, ${cellH}in)`,
             }}
           >
-            {Array.from({ length: SHEET_TOTAL_SLOTS }).map((_, slotIndex) => {
-              const globalSlotIndex = activeSheet * SHEET_TOTAL_SLOTS + slotIndex;
+            {Array.from({ length: totalSlotsPerSheet }).map((_, slotIndex) => {
+              const globalSlotIndex = activeSheet * totalSlotsPerSheet + slotIndex;
               const qrItem = getQrItemForSlot(globalSlotIndex, bulkQrs, config.fillStrategy, customQr);
               const activeQrUrl = getActiveQrUrlForBulkItem(qrItem, layout);
-              const col = slotIndex % SHEET_COLS;
-              const row = Math.floor(slotIndex / SHEET_COLS);
+              const col = slotIndex % cols;
+              const row = Math.floor(slotIndex / cols);
 
               return (
                 <div
@@ -160,8 +173,8 @@ export const BulkSheetStage: React.FC<BulkSheetStageProps> = ({
                   onClick={() => onSelectSlot && onSelectSlot(globalSlotIndex)}
                   className="relative overflow-hidden box-border group cursor-pointer transition-colors"
                   style={{
-                    width: `${SHEET_CELL_WIDTH_INCH}in`,
-                    height: `${SHEET_CELL_HEIGHT_INCH}in`,
+                    width: `${cellW}in`,
+                    height: `${cellH}in`,
                     backgroundColor: effectiveBgColor,
                   }}
                   title={`Slot #${globalSlotIndex + 1} (Col ${col + 1}, Row ${row + 1})${qrItem ? `: ${qrItem.name}` : ''}`}

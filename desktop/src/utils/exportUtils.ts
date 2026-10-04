@@ -16,6 +16,8 @@ export interface ExportCardOptions {
   pageBgColor?: string;
   showTemplateImage?: boolean;
   allowFallbackQr?: boolean;
+  cardWidth?: number;
+  cardHeight?: number;
 }
 
 /**
@@ -77,8 +79,10 @@ export function triggerBlobDownload(blob: Blob, filename: string): void {
  */
 export async function renderCompositeCanvas(options: ExportCardOptions): Promise<HTMLCanvasElement> {
   const dpi = options.dpi || 600;
-  const canvasWidth = Math.round(TARGET_WIDTH_INCH * dpi);
-  const canvasHeight = Math.round(TARGET_HEIGHT_INCH * dpi);
+  const cardWidth = options.cardWidth || TARGET_WIDTH_INCH;
+  const cardHeight = options.cardHeight || TARGET_HEIGHT_INCH;
+  const canvasWidth = Math.round(cardWidth * dpi);
+  const canvasHeight = Math.round(cardHeight * dpi);
 
   const canvas = document.createElement('canvas');
   canvas.width = canvasWidth;
@@ -117,7 +121,7 @@ export async function renderCompositeCanvas(options: ExportCardOptions): Promise
   }
 
   // 2. Compute QR Pixel Coordinates (based on physical inches)
-  const pxPerInch = canvasWidth / TARGET_WIDTH_INCH;
+  const pxPerInch = canvasWidth / cardWidth;
   const qrX_px = options.qrX * pxPerInch;
   const qrY_px = options.qrY * pxPerInch;
   const qrW_px = options.qrWidth * pxPerInch;
@@ -223,16 +227,19 @@ export async function exportCardAsPdf(
 ): Promise<void> {
   // Render at 600 DPI for ultra-crisp print quality
   const exportDpi = Math.max(300, options.dpi || 600);
+  const cardWidth = options.cardWidth || TARGET_WIDTH_INCH;
+  const cardHeight = options.cardHeight || TARGET_HEIGHT_INCH;
+
   const canvas = await renderCompositeCanvas({ ...options, dpi: exportDpi });
   const imgDataUrl = canvas.toDataURL('image/png');
 
   const pdf = new jsPDF({
-    orientation: 'portrait',
+    orientation: cardWidth > cardHeight ? 'landscape' : 'portrait',
     unit: 'in',
-    format: [TARGET_WIDTH_INCH, TARGET_HEIGHT_INCH],
+    format: [cardWidth, cardHeight],
   });
 
-  pdf.addImage(imgDataUrl, 'PNG', 0, 0, TARGET_WIDTH_INCH, TARGET_HEIGHT_INCH);
+  pdf.addImage(imgDataUrl, 'PNG', 0, 0, cardWidth, cardHeight);
   pdf.save(filename);
 }
 

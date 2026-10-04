@@ -61,7 +61,15 @@ export const BulkExportModal: React.FC<BulkExportModalProps> = ({
 
   if (!isOpen) return null;
 
-  const totalSheets = Math.max(1, Math.ceil(bulkQrs.length / SHEET_TOTAL_SLOTS));
+  const cols = config.sheetCols ?? SHEET_COLS;
+  const rows = config.sheetRows ?? SHEET_ROWS;
+  const totalSlots = cols * rows;
+  const cardW = layout.cardWidth ?? 4.2035;
+  const cardH = layout.cardHeight ?? 6.7035;
+  const sheetW = config.sheetWidthInch ?? Number((cols * cardW).toFixed(4));
+  const sheetH = config.sheetHeightInch ?? Number((rows * cardH).toFixed(4));
+
+  const totalSheets = Math.max(1, Math.ceil(bulkQrs.length / totalSlots));
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -81,6 +89,12 @@ export const BulkExportModal: React.FC<BulkExportModalProps> = ({
         activeSheetIndex: config.activeSheetIndex,
         exportAllSheets,
         dpi: pdfDpi,
+        sheetWidthInch: sheetW,
+        sheetHeightInch: sheetH,
+        sheetCols: cols,
+        sheetRows: rows,
+        cardWidthInch: cardW,
+        cardHeightInch: cardH,
         onProgress: (msg, percent) => {
           setProgressMsg(msg);
           setProgressPercent(percent);
@@ -123,10 +137,10 @@ export const BulkExportModal: React.FC<BulkExportModalProps> = ({
             </div>
             <div>
               <h2 className="font-semibold text-sm text-slate-100">
-                Save & Export 132-QR Sheet
+                Save & Export Bulk QR Sheet
               </h2>
               <p className="text-[11px] text-slate-400">
-                {SHEET_WIDTH_INCH}&quot; × {SHEET_HEIGHT_INCH}&quot; ({SHEET_COLS} Cols × {SHEET_ROWS} Rows = 132 Cards)
+                {sheetW}&quot; × {sheetH}&quot; ({cols} Cols × {rows} Rows = {totalSlots} Cards)
               </p>
             </div>
           </div>
@@ -165,7 +179,7 @@ export const BulkExportModal: React.FC<BulkExportModalProps> = ({
                 <div>
                   <div className="text-xs font-medium">Print PDF (Recommended)</div>
                   <div className="text-[10px] text-slate-400">
-                    Exact {SHEET_WIDTH_INCH}&quot; × {SHEET_HEIGHT_INCH}&quot;
+                    Exact {sheetW}&quot; × {sheetH}&quot;
                   </div>
                 </div>
               </button>
@@ -210,7 +224,7 @@ export const BulkExportModal: React.FC<BulkExportModalProps> = ({
                       : 'bg-slate-950 border-slate-800 text-slate-400'
                   }`}
                 >
-                  All {totalSheets} Sheets ({totalSheets * 132} slots)
+                  All {totalSheets} Sheets ({totalSheets * totalSlots} slots)
                 </button>
                 <button
                   type="button"
@@ -221,7 +235,7 @@ export const BulkExportModal: React.FC<BulkExportModalProps> = ({
                       : 'bg-slate-950 border-slate-800 text-slate-400'
                   }`}
                 >
-                  Sheet {config.activeSheetIndex + 1} Only (132 QRs)
+                  Sheet {config.activeSheetIndex + 1} Only ({totalSlots} QRs)
                 </button>
               </div>
             </div>
@@ -358,7 +372,7 @@ export const BulkExportModal: React.FC<BulkExportModalProps> = ({
             ) : (
               <>
                 <Download className="w-4 h-4" />
-                <span>Download {format.toUpperCase()} (46.2&quot; × 80.4&quot;)</span>
+                <span>Download {format.toUpperCase()} ({sheetW}&quot; × {sheetH}&quot;)</span>
               </>
             )}
           </button>
@@ -366,7 +380,7 @@ export const BulkExportModal: React.FC<BulkExportModalProps> = ({
           <button
             onClick={handlePrint}
             disabled={isExporting}
-            title="Direct Print 46.2in × 80.4444in Sheet"
+            title={`Direct Print ${sheetW}in × ${sheetH}in Sheet`}
             className="flex items-center justify-center gap-1.5 py-2.5 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 border border-slate-700 text-xs font-medium transition cursor-pointer"
           >
             <Printer className="w-4 h-4" />

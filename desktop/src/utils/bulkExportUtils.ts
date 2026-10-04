@@ -26,6 +26,12 @@ export interface BulkExportOptions {
   customQr?: UploadedQrInfo | null;
   dpi?: number;
   onProgress?: (msg: string, percent: number) => void;
+  sheetWidthInch?: number;
+  sheetHeightInch?: number;
+  sheetCols?: number;
+  sheetRows?: number;
+  cardWidthInch?: number;
+  cardHeightInch?: number;
 }
 
 /**
@@ -98,21 +104,34 @@ export async function exportBulkSheetAsPdf(
     onProgress,
   } = options;
 
-  const totalSheets = Math.max(1, Math.ceil(bulkQrs.length / SHEET_TOTAL_SLOTS));
+  const cols = options.sheetCols || SHEET_COLS;
+  const rows = options.sheetRows || SHEET_ROWS;
+  const totalSlotsPerSheet = cols * rows;
+
+  const cardW = options.cardWidthInch || layout.cardWidth || SHEET_CELL_WIDTH_INCH;
+  const cardH = options.cardHeightInch || layout.cardHeight || SHEET_CELL_HEIGHT_INCH;
+
+  const sheetW = options.sheetWidthInch || Number((cols * cardW).toFixed(4));
+  const sheetH = options.sheetHeightInch || Number((rows * cardH).toFixed(4));
+
+  const cellW = Number((sheetW / cols).toFixed(4));
+  const cellH = Number((sheetH / rows).toFixed(4));
+
+  const totalSheets = Math.max(1, Math.ceil(bulkQrs.length / totalSlotsPerSheet));
   const sheetIndicesToExport = exportAllSheets
     ? Array.from({ length: totalSheets }, (_, i) => i)
     : [activeSheetIndex];
 
   const pdf = new jsPDF({
-    orientation: 'portrait',
+    orientation: sheetW > sheetH ? 'landscape' : 'portrait',
     unit: 'in',
-    format: [SHEET_WIDTH_INCH, SHEET_HEIGHT_INCH],
+    format: [sheetW, sheetH],
   });
 
   for (let sIdx = 0; sIdx < sheetIndicesToExport.length; sIdx++) {
     const sheetNum = sheetIndicesToExport[sIdx];
     if (sIdx > 0) {
-      pdf.addPage([SHEET_WIDTH_INCH, SHEET_HEIGHT_INCH]);
+      pdf.addPage([sheetW, sheetH]);
     }
 
     // Set page background fill if configured
@@ -124,18 +143,18 @@ export async function exportBulkSheetAsPdf(
         : [255, 255, 255];
 
     pdf.setFillColor(effectivePageColor[0], effectivePageColor[1], effectivePageColor[2]);
-    pdf.rect(0, 0, SHEET_WIDTH_INCH, SHEET_HEIGHT_INCH, 'F');
+    pdf.rect(0, 0, sheetW, sheetH, 'F');
 
     // Pre-cache unique rendered cards to optimize speed
     const renderedCardCache = new Map<string, string>();
 
-    for (let row = 0; row < SHEET_ROWS; row++) {
-      for (let col = 0; col < SHEET_COLS; col++) {
-        const slotInSheet = row * SHEET_COLS + col;
-        const globalSlotIndex = sheetNum * SHEET_TOTAL_SLOTS + slotInSheet;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const slotInSheet = row * cols + col;
+        const globalSlotIndex = sheetNum * totalSlotsPerSheet + slotInSheet;
         const qrItem = getQrItemForSlot(globalSlotIndex, bulkQrs, fillStrategy, customQr);
-        const cellX = col * SHEET_CELL_WIDTH_INCH;
-        const cellY = row * SHEET_CELL_HEIGHT_INCH;
+        const cellX = col * cellW;
+        const cellY = row * cellH;
 
         const activeQrUrl = qrItem ? getActiveQrUrlForBulkItem(qrItem, layout) : null;
         const hasCardToRender = activeQrUrl || (template.url && layout.showTemplateImage !== false);
@@ -159,6 +178,8 @@ export async function exportBulkSheetAsPdf(
               pageBg: layout.pageBg,
               pageBgColor: layout.pageBgColor,
               showTemplateImage: layout.showTemplateImage,
+              cardWidth: cellW,
+              cardHeight: cellH,
             });
             cardDataUrl = cellCanvas.toDataURL('image/jpeg', 0.90);
             // Cache if card is repeated or empty template card to avoid re-rendering
@@ -173,8 +194,8 @@ export async function exportBulkSheetAsPdf(
             'JPEG',
             cellX,
             cellY,
-            SHEET_CELL_WIDTH_INCH,
-            SHEET_CELL_HEIGHT_INCH,
+            cellW,
+            cellH,
             undefined,
             'FAST'
           );
@@ -187,8 +208,8 @@ export async function exportBulkSheetAsPdf(
           }
         }
 
-        const currentCount = sIdx * SHEET_TOTAL_SLOTS + slotInSheet + 1;
-        const totalItems = sheetIndicesToExport.length * SHEET_TOTAL_SLOTS;
+        const currentCount = sIdx * totalSlotsPerSheet + slotInSheet + 1;
+        const totalItems = sheetIndicesToExport.length * totalSlotsPerSheet;
         if (onProgress) {
           onProgress(
             `Rendering Card ${currentCount} of ${totalItems}...`,
@@ -206,18 +227,18 @@ export async function exportBulkSheetAsPdf(
       pdf.setLineDashPattern([0.1, 0.05], 0);
 
       // Vertical column slicing lines
-      for (let c = 1; c < SHEET_COLS; c++) {
-        const x = c * SHEET_CELL_WIDTH_INCH;
-        pdf.line(x, 0, x, SHEET_HEIGHT_INCH);
+      for (let c = 1; c < cols; c++) {
+        const x = c * cellW;
+        pdf.line(x, 0, x, sheetH);
       }
       // Horizontal row slicing lines
-      for (let r = 1; r < SHEET_ROWS; r++) {
-        const y = r * SHEET_CELL_HEIGHT_INCH;
-        pdf.line(0, y, SHEET_WIDTH_INCH, y);
+      for (let r = 1; r < rows; r++) {
+        const y = r * cellH;
+        pdf.line(0, y, sheetW, y);
       }
 
       // Outer sheet trim perimeter border
-      pdf.rect(0, 0, SHEET_WIDTH_INCH, SHEET_HEIGHT_INCH, 'S');
+      pdf.rect(0, 0, sheetW, sheetH, 'S');
 
       // Reset dash pattern
       pdf.setLineDashPattern([], 0);
@@ -249,9 +270,19 @@ export async function exportBulkSheetAsPng(
     onProgress,
   } = options;
 
+  const cols = options.sheetCols || SHEET_COLS;
+  const rows = options.sheetRows || SHEET_ROWS;
+  const totalSlotsPerSheet = cols * rows;
+
+  const cardW = options.cardWidthInch || layout.cardWidth || SHEET_CELL_WIDTH_INCH;
+  const cardH = options.cardHeightInch || layout.cardHeight || SHEET_CELL_HEIGHT_INCH;
+
+  const sheetW = options.sheetWidthInch || Number((cols * cardW).toFixed(4));
+  const sheetH = options.sheetHeightInch || Number((rows * cardH).toFixed(4));
+
   const canvas = document.createElement('canvas');
-  canvas.width = Math.round(SHEET_WIDTH_INCH * dpi);
-  canvas.height = Math.round(SHEET_HEIGHT_INCH * dpi);
+  canvas.width = Math.round(sheetW * dpi);
+  canvas.height = Math.round(sheetH * dpi);
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('2D Canvas context unavailable');
 
@@ -259,15 +290,18 @@ export async function exportBulkSheetAsPng(
   ctx.fillStyle = layout.pageBg === 'white' ? '#ffffff' : layout.pageBg === 'dark' ? '#0f172a' : '#ffffff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const cellWidthPx = canvas.width / SHEET_COLS;
-  const cellHeightPx = canvas.height / SHEET_ROWS;
+  const cellWidthPx = canvas.width / cols;
+  const cellHeightPx = canvas.height / rows;
+
+  const cellWidthInch = Number((sheetW / cols).toFixed(4));
+  const cellHeightInch = Number((sheetH / rows).toFixed(4));
 
   const renderedCardCache = new Map<string, HTMLCanvasElement>();
 
-  for (let row = 0; row < SHEET_ROWS; row++) {
-    for (let col = 0; col < SHEET_COLS; col++) {
-      const slotInSheet = row * SHEET_COLS + col;
-      const globalSlotIndex = activeSheetIndex * SHEET_TOTAL_SLOTS + slotInSheet;
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const slotInSheet = row * cols + col;
+      const globalSlotIndex = activeSheetIndex * totalSlotsPerSheet + slotInSheet;
       const qrItem = getQrItemForSlot(globalSlotIndex, bulkQrs, fillStrategy, customQr);
       const cellX = col * cellWidthPx;
       const cellY = row * cellHeightPx;
@@ -294,6 +328,8 @@ export async function exportBulkSheetAsPng(
             pageBg: layout.pageBg,
             pageBgColor: layout.pageBgColor,
             showTemplateImage: layout.showTemplateImage,
+            cardWidth: cellWidthInch,
+            cardHeight: cellHeightInch,
           });
           renderedCardCache.set(cacheKey, cellCanvas);
         }
@@ -309,8 +345,8 @@ export async function exportBulkSheetAsPng(
 
       if (onProgress) {
         onProgress(
-          `Rendering slot ${slotInSheet + 1} of 132...`,
-          Math.round(((slotInSheet + 1) / SHEET_TOTAL_SLOTS) * 100)
+          `Rendering slot ${slotInSheet + 1} of ${totalSlotsPerSheet}...`,
+          Math.round(((slotInSheet + 1) / totalSlotsPerSheet) * 100)
         );
       }
     }
@@ -322,13 +358,13 @@ export async function exportBulkSheetAsPng(
     ctx.lineWidth = Math.max(3, Math.round(dpi / 40));
     ctx.setLineDash([Math.round(dpi / 12), Math.round(dpi / 24)]);
 
-    for (let c = 1; c < SHEET_COLS; c++) {
+    for (let c = 1; c < cols; c++) {
       ctx.beginPath();
       ctx.moveTo(c * cellWidthPx, 0);
       ctx.lineTo(c * cellWidthPx, canvas.height);
       ctx.stroke();
     }
-    for (let r = 1; r < SHEET_ROWS; r++) {
+    for (let r = 1; r < rows; r++) {
       ctx.beginPath();
       ctx.moveTo(0, r * cellHeightPx);
       ctx.lineTo(canvas.width, r * cellHeightPx);

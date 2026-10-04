@@ -12,11 +12,16 @@ import {
   Sparkles,
   Copy,
   FolderTree,
+  Maximize2,
+  Layers,
 } from 'lucide-react';
 import {
   SHEET_TOTAL_SLOTS,
-  SHEET_WIDTH_INCH,
-  SHEET_HEIGHT_INCH,
+  SHEET_COLS,
+  SHEET_ROWS,
+  SHEET_CELL_WIDTH_INCH,
+  SHEET_CELL_HEIGHT_INCH,
+  SHEET_SIZE_PRESETS,
   type BulkQrItem,
   type BulkSheetConfig,
   type SavedLayoutState,
@@ -28,6 +33,8 @@ interface BulkManagerSidebarProps {
   customQr?: UploadedQrInfo | null;
   layout: SavedLayoutState;
   config: BulkSheetConfig;
+  cardWidth?: number;
+  cardHeight?: number;
   isProcessing: boolean;
   processingProgress: { message: string; percent: number } | null;
   onOpenMultiFilePicker: () => void;
@@ -45,7 +52,10 @@ interface BulkManagerSidebarProps {
 export const BulkManagerSidebar: React.FC<BulkManagerSidebarProps> = ({
   bulkQrs,
   customQr,
+  layout,
   config,
+  cardWidth,
+  cardHeight,
   isProcessing,
   processingProgress,
   onOpenMultiFilePicker,
@@ -57,8 +67,17 @@ export const BulkManagerSidebar: React.FC<BulkManagerSidebarProps> = ({
   onUpdateConfig,
   onOpenFolderSplitter,
 }) => {
+  const cardW = cardWidth || layout.cardWidth || SHEET_CELL_WIDTH_INCH;
+  const cardH = cardHeight || layout.cardHeight || SHEET_CELL_HEIGHT_INCH;
+  const cols = config.sheetCols || SHEET_COLS;
+  const rows = config.sheetRows || SHEET_ROWS;
+  const totalSlotsPerSheet = cols * rows;
+
+  const sheetWidthInch = config.sheetWidthInch || Number((cols * cardW).toFixed(4));
+  const sheetHeightInch = config.sheetHeightInch || Number((rows * cardH).toFixed(4));
+
   const effectiveTotalQrs = bulkQrs.length > 0 ? bulkQrs.length : (customQr ? 1 : 0);
-  const totalSheets = Math.max(1, Math.ceil(Math.max(1, bulkQrs.length) / SHEET_TOTAL_SLOTS));
+  const totalSheets = Math.max(1, Math.ceil(Math.max(1, bulkQrs.length) / totalSlotsPerSheet));
   const activeSheet = config.activeSheetIndex;
 
   return (
@@ -70,7 +89,7 @@ export const BulkManagerSidebar: React.FC<BulkManagerSidebarProps> = ({
           <h2 className="text-xs font-semibold text-slate-200 uppercase tracking-wider">Sheet Layout</h2>
         </div>
         <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-          11×12 Grid
+          {cols}×{rows} Grid
         </span>
       </div>
 
@@ -79,14 +98,14 @@ export const BulkManagerSidebar: React.FC<BulkManagerSidebarProps> = ({
         <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900 border border-slate-800">
           <div className="flex items-center gap-1.5">
             <span className="text-sm font-bold text-white">{effectiveTotalQrs}</span>
-            <span className="text-[11px] text-slate-400">/ 132 slots</span>
+            <span className="text-[11px] text-slate-400">/ {totalSlotsPerSheet} slots</span>
           </div>
           <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
             <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/50">
               {totalSheets} {totalSheets === 1 ? 'Sheet' : 'Sheets'}
             </span>
             <span>•</span>
-            <span>{SHEET_WIDTH_INCH}&quot;×{SHEET_HEIGHT_INCH}&quot;</span>
+            <span>{sheetWidthInch}&quot;×{sheetHeightInch}&quot;</span>
           </div>
         </div>
 
@@ -118,6 +137,150 @@ export const BulkManagerSidebar: React.FC<BulkManagerSidebarProps> = ({
             </div>
           </div>
         )}
+
+        {/* Section 0: Sheet & Grid Dimensions */}
+        <div className="space-y-2.5 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/90">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <Maximize2 className="w-3 h-3 text-indigo-400" />
+              <span>Sheet Dimensions</span>
+            </span>
+            <span className="text-[10px] font-mono text-indigo-400">
+              {sheetWidthInch}&quot; × {sheetHeightInch}&quot;
+            </span>
+          </div>
+
+          {/* Sheet Preset Selector */}
+          <select
+            value={
+              SHEET_SIZE_PRESETS.find(
+                (p) =>
+                  Math.abs(p.widthInch - sheetWidthInch) < 0.05 &&
+                  Math.abs(p.heightInch - sheetHeightInch) < 0.05
+              )?.id || (
+                Math.abs(sheetWidthInch - Number((cols * cardW).toFixed(4))) < 0.05 &&
+                Math.abs(sheetHeightInch - Number((rows * cardH).toFixed(4))) < 0.05
+                  ? 'fit_card'
+                  : 'custom'
+              )
+            }
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === 'fit_card') {
+                onUpdateConfig({
+                  sheetWidthInch: Number((cols * cardW).toFixed(4)),
+                  sheetHeightInch: Number((rows * cardH).toFixed(4)),
+                });
+              } else {
+                const preset = SHEET_SIZE_PRESETS.find((p) => p.id === val);
+                if (preset) {
+                  onUpdateConfig({
+                    sheetWidthInch: preset.widthInch,
+                    sheetHeightInch: preset.heightInch,
+                  });
+                }
+              }
+            }}
+            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-[11px] text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
+          >
+            {SHEET_SIZE_PRESETS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+            <option value="fit_card">Fit Cards 1:1 ({cols}×{rows} Grid)</option>
+            <option value="custom">Custom Dimensions...</option>
+          </select>
+
+          {/* Width & Height Number Inputs */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-1.5 focus-within:border-indigo-500">
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-0.5">
+                <span>SHEET WIDTH</span>
+                <span className="text-slate-500">in</span>
+              </div>
+              <input
+                type="number"
+                min={2}
+                max={120}
+                step={0.1}
+                value={sheetWidthInch}
+                onChange={(e) =>
+                  onUpdateConfig({
+                    sheetWidthInch: Math.max(1, parseFloat(e.target.value) || 1),
+                  })
+                }
+                className="w-full bg-transparent text-xs font-mono text-slate-200 focus:outline-none"
+              />
+            </div>
+            <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-1.5 focus-within:border-indigo-500">
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-0.5">
+                <span>SHEET HEIGHT</span>
+                <span className="text-slate-500">in</span>
+              </div>
+              <input
+                type="number"
+                min={2}
+                max={120}
+                step={0.1}
+                value={sheetHeightInch}
+                onChange={(e) =>
+                  onUpdateConfig({
+                    sheetHeightInch: Math.max(1, parseFloat(e.target.value) || 1),
+                  })
+                }
+                className="w-full bg-transparent text-xs font-mono text-slate-200 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Grid Columns & Rows Inputs */}
+          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-800/60">
+            <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-1.5 focus-within:border-indigo-500">
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-0.5">
+                <span>COLUMNS</span>
+                <span className="text-slate-500">cols</span>
+              </div>
+              <input
+                type="number"
+                min={1}
+                max={30}
+                step={1}
+                value={cols}
+                onChange={(e) =>
+                  onUpdateConfig({
+                    sheetCols: Math.max(1, parseInt(e.target.value, 10) || 1),
+                  })
+                }
+                className="w-full bg-transparent text-xs font-mono text-slate-200 focus:outline-none"
+              />
+            </div>
+            <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-1.5 focus-within:border-indigo-500">
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-0.5">
+                <span>ROWS</span>
+                <span className="text-slate-500">rows</span>
+              </div>
+              <input
+                type="number"
+                min={1}
+                max={30}
+                step={1}
+                value={rows}
+                onChange={(e) =>
+                  onUpdateConfig({
+                    sheetRows: Math.max(1, parseInt(e.target.value, 10) || 1),
+                  })
+                }
+                className="w-full bg-transparent text-xs font-mono text-slate-200 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+            <span>Slots: <strong className="text-slate-200">{totalSlotsPerSheet}</strong></span>
+            <span>Cell: <strong className="text-slate-200 font-mono">{(sheetWidthInch / cols).toFixed(2)}&quot; × {(sheetHeightInch / rows).toFixed(2)}&quot;</strong></span>
+          </div>
+        </div>
 
         {/* Section 1: Add QR Codes */}
         <div className="space-y-2">

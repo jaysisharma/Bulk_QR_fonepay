@@ -20,7 +20,8 @@ interface CanvasStageProps {
   bgType: BgType;
   qrColor: string;
   activeQrImageUrl: string | null;
-  innerPaddingPx: number;
+  cardWidth?: number;
+  cardHeight?: number;
   onStartDrag: (
     e: React.MouseEvent,
     mode: 'move' | 'resize-se' | 'resize-e' | 'resize-s'
@@ -36,6 +37,8 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   pageBg = 'white',
   pageBgColor = '#ffffff',
   showTemplateImage = true,
+  cardWidth = TARGET_WIDTH_INCH,
+  cardHeight = TARGET_HEIGHT_INCH,
   qrX,
   qrY,
   qrWidth,
@@ -67,12 +70,12 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
               : 'bg-transparent ring-2 ring-slate-700 ring-dashed'
           } ${!templateUrl ? 'cursor-pointer' : ''}`}
           style={{
-            width: `${TARGET_WIDTH_INCH}in`,
-            height: `${TARGET_HEIGHT_INCH}in`,
-            minWidth: `${TARGET_WIDTH_INCH}in`,
-            minHeight: `${TARGET_HEIGHT_INCH}in`,
-            maxWidth: `${TARGET_WIDTH_INCH}in`,
-            maxHeight: `${TARGET_HEIGHT_INCH}in`,
+            width: `${cardWidth}in`,
+            height: `${cardHeight}in`,
+            minWidth: `${cardWidth}in`,
+            minHeight: `${cardHeight}in`,
+            maxWidth: `${cardWidth}in`,
+            maxHeight: `${cardHeight}in`,
             backgroundColor:
               isWhitePage
                 ? '#ffffff'
@@ -90,7 +93,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
           {/* Dimensions & Print-Ready badge */}
           <div className="absolute top-2.5 left-2.5 z-10 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-950/80 backdrop-blur-md border border-slate-800 text-[10px] font-mono text-slate-300 shadow-sm pointer-events-none print:hidden print-hide">
             <Maximize2 className="w-3 h-3 text-indigo-400" />
-            <span>{TARGET_WIDTH_INCH}&quot; × {TARGET_HEIGHT_INCH}&quot;</span>
+            <span>{cardWidth}&quot; × {cardHeight}&quot;</span>
             {isWhitePage && (
               <span className="ml-1 pl-1 border-l border-slate-700 text-emerald-400 font-sans flex items-center gap-1">
                 <Printer className="w-2.5 h-2.5" />

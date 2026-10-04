@@ -14,18 +14,23 @@ import {
   Printer,
   Trash2,
   RotateCcw,
+  CreditCard,
 } from 'lucide-react';
 import {
   type BgType,
   type PageBgType,
   type UploadedQrInfo,
   type PresetItem,
+  CARD_SIZE_PRESETS,
   TARGET_WIDTH_INCH,
   TARGET_HEIGHT_INCH,
 } from '../types';
 import { PresetManager } from './PresetManager';
 
 interface InspectorSidebarProps {
+  cardWidth: number;
+  cardHeight: number;
+  onCardSizeChange: (w: number, h: number) => void;
   onOpenExportModal: () => void;
   pageBg: PageBgType;
   onPageBgChange: (val: PageBgType) => void;
@@ -69,6 +74,9 @@ interface InspectorSidebarProps {
 }
 
 export const InspectorSidebar: React.FC<InspectorSidebarProps> = ({
+  cardWidth,
+  cardHeight,
+  onCardSizeChange,
   pageBg,
   onPageBgChange,
   showTemplateImage,
@@ -136,12 +144,82 @@ export const InspectorSidebar: React.FC<InspectorSidebarProps> = ({
       </div>
 
       <div className="p-3.5 space-y-4">
+        {/* Section 0: Card Size Dimensions */}
+        <div className="space-y-2 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/90">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <CreditCard className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Card Dimensions</span>
+            </span>
+            <span className="text-[10px] font-mono text-indigo-400">
+              {cardWidth}&quot; × {cardHeight}&quot;
+            </span>
+          </div>
+
+          {/* Quick Preset Selector */}
+          <select
+            value={
+              CARD_SIZE_PRESETS.find(
+                (p) => Math.abs(p.widthInch - cardWidth) < 0.01 && Math.abs(p.heightInch - cardHeight) < 0.01
+              )?.id || 'custom'
+            }
+            onChange={(e) => {
+              const preset = CARD_SIZE_PRESETS.find((p) => p.id === e.target.value);
+              if (preset) {
+                onCardSizeChange(preset.widthInch, preset.heightInch);
+              }
+            }}
+            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-[11px] text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
+          >
+            {CARD_SIZE_PRESETS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+            <option value="custom">Custom Dimensions...</option>
+          </select>
+
+          {/* Width & Height Number Inputs */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-1.5 focus-within:border-indigo-500">
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-0.5">
+                <span>CARD WIDTH</span>
+                <span className="text-slate-500">in</span>
+              </div>
+              <input
+                type="number"
+                min={0.5}
+                max={24}
+                step={0.01}
+                value={cardWidth}
+                onChange={(e) => onCardSizeChange(parseFloat(e.target.value) || 0.5, cardHeight)}
+                className="w-full bg-transparent text-xs font-mono text-slate-200 focus:outline-none"
+              />
+            </div>
+            <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-1.5 focus-within:border-indigo-500">
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-0.5">
+                <span>CARD HEIGHT</span>
+                <span className="text-slate-500">in</span>
+              </div>
+              <input
+                type="number"
+                min={0.5}
+                max={24}
+                step={0.01}
+                value={cardHeight}
+                onChange={(e) => onCardSizeChange(cardWidth, parseFloat(e.target.value) || 0.5)}
+                className="w-full bg-transparent text-xs font-mono text-slate-200 focus:outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Section 1: Transform (Dimensions & Position) */}
         <div className="space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
               <Move className="w-3 h-3 text-indigo-400" />
-              <span>Transform</span>
+              <span>QR Placement</span>
             </span>
             <button
               onClick={onMakeSquare}
@@ -162,7 +240,7 @@ export const InspectorSidebar: React.FC<InspectorSidebarProps> = ({
               <input
                 type="number"
                 min={0}
-                max={Math.max(0, Number((TARGET_WIDTH_INCH - qrWidth).toFixed(4)))}
+                max={Math.max(0, Number((cardWidth - qrWidth).toFixed(4)))}
                 step={0.01}
                 value={qrX}
                 onChange={(e) => onXChange(Number(parseFloat(e.target.value) || 0))}
@@ -179,7 +257,7 @@ export const InspectorSidebar: React.FC<InspectorSidebarProps> = ({
               <input
                 type="number"
                 min={0}
-                max={Math.max(0, Number((TARGET_HEIGHT_INCH - qrHeight).toFixed(4)))}
+                max={Math.max(0, Number((cardHeight - qrHeight).toFixed(4)))}
                 step={0.01}
                 value={qrY}
                 onChange={(e) => onYChange(Number(parseFloat(e.target.value) || 0))}
@@ -196,7 +274,7 @@ export const InspectorSidebar: React.FC<InspectorSidebarProps> = ({
               <input
                 type="number"
                 min={0.3}
-                max={TARGET_WIDTH_INCH}
+                max={cardWidth}
                 step={0.05}
                 value={qrWidth}
                 onChange={(e) => onWidthChange(Number(parseFloat(e.target.value) || 0.3))}
@@ -213,7 +291,7 @@ export const InspectorSidebar: React.FC<InspectorSidebarProps> = ({
               <input
                 type="number"
                 min={0.3}
-                max={TARGET_HEIGHT_INCH}
+                max={cardHeight}
                 step={0.05}
                 value={qrHeight}
                 onChange={(e) => onHeightChange(Number(parseFloat(e.target.value) || 0.3))}
@@ -225,7 +303,7 @@ export const InspectorSidebar: React.FC<InspectorSidebarProps> = ({
           {/* Quick Align Row */}
           <div className="grid grid-cols-3 gap-1 pt-0.5 text-[11px]">
             <button
-              onClick={() => onQuickAlign(Number(((TARGET_WIDTH_INCH - qrWidth) / 2).toFixed(4)), 0.35)}
+              onClick={() => onQuickAlign(Number(((cardWidth - qrWidth) / 2).toFixed(4)), 0.35)}
               className="py-1 px-1.5 rounded bg-slate-900/80 hover:bg-slate-800 border border-slate-800/80 text-slate-300 text-center transition cursor-pointer"
             >
               Top Center
@@ -239,8 +317,8 @@ export const InspectorSidebar: React.FC<InspectorSidebarProps> = ({
             <button
               onClick={() =>
                 onQuickAlign(
-                  Number(((TARGET_WIDTH_INCH - qrWidth) / 2).toFixed(4)),
-                  Number((TARGET_HEIGHT_INCH - qrHeight - 0.45).toFixed(4))
+                  Number(((cardWidth - qrWidth) / 2).toFixed(4)),
+                  Number((cardHeight - qrHeight - 0.45).toFixed(4))
                 )
               }
               className="py-1 px-1.5 rounded bg-slate-900/80 hover:bg-slate-800 border border-slate-800/80 text-slate-300 text-center transition cursor-pointer"

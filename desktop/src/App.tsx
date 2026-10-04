@@ -50,6 +50,8 @@ function getInitialState(): SavedLayoutState {
         qrY: typeof parsed.qrY === 'number' ? parsed.qrY : Number(((TARGET_HEIGHT_INCH - 1.5) / 2).toFixed(4)),
         qrWidth: typeof parsed.qrWidth === 'number' ? parsed.qrWidth : 1.5,
         qrHeight: typeof parsed.qrHeight === 'number' ? parsed.qrHeight : 1.5,
+        cardWidth: typeof parsed.cardWidth === 'number' ? parsed.cardWidth : TARGET_WIDTH_INCH,
+        cardHeight: typeof parsed.cardHeight === 'number' ? parsed.cardHeight : TARGET_HEIGHT_INCH,
         bgType: parsed.bgType || 'white',
         qrColor: parsed.qrColor || '#000000',
         invertOnBlack: parsed.invertOnBlack ?? true,
@@ -69,6 +71,8 @@ function getInitialState(): SavedLayoutState {
     qrY: Number(((TARGET_HEIGHT_INCH - 1.5) / 2).toFixed(4)),
     qrWidth: 1.5,
     qrHeight: 1.5,
+    cardWidth: TARGET_WIDTH_INCH,
+    cardHeight: TARGET_HEIGHT_INCH,
     bgType: 'white',
     qrColor: '#000000',
     invertOnBlack: true,
@@ -105,6 +109,10 @@ export default function App() {
   // Load persistent initial layout
   const [initialSaved] = useState<SavedLayoutState>(getInitialState);
 
+  // Card physical dimensions (in inches) - customizable
+  const [cardWidth, setCardWidth] = useState<number>(initialSaved.cardWidth ?? TARGET_WIDTH_INCH);
+  const [cardHeight, setCardHeight] = useState<number>(initialSaved.cardHeight ?? TARGET_HEIGHT_INCH);
+
   // QR Overlay state (in physical inches) - preserved across new QR uploads
   const [qrWidth, setQrWidth] = useState<number>(initialSaved.qrWidth);
   const [qrHeight, setQrHeight] = useState<number>(initialSaved.qrHeight);
@@ -132,13 +140,17 @@ export default function App() {
   // App Mode: 'single' (Single Card Designer) vs 'bulk' (132 QR Sheet)
   const [mode, setMode] = useState<AppMode>('single');
 
-  // Bulk 132-QR State
+  // Bulk Sheet State
   const [bulkQrs, setBulkQrs] = useState<BulkQrItem[]>([]);
   const [bulkConfig, setBulkConfig] = useState<BulkSheetConfig>({
     showCutGuides: true,
     showSlotNumbers: false,
     fillStrategy: 'blank',
     activeSheetIndex: 0,
+    sheetCols: 11,
+    sheetRows: 12,
+    sheetWidthInch: 46.2385,
+    sheetHeightInch: 80.442,
   });
   const [isBulkExportModalOpen, setIsBulkExportModalOpen] = useState<boolean>(false);
   const [isProcessingBulk, setIsProcessingBulk] = useState<boolean>(false);

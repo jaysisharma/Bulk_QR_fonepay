@@ -15,6 +15,8 @@ interface StatusBarProps {
   qrHeight: number;
   bgType: BgType;
   autoTrimMargins: boolean;
+  cardWidth?: number;
+  cardHeight?: number;
 }
 
 export const StatusBar: React.FC<StatusBarProps> = ({
@@ -26,11 +28,13 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   qrHeight,
   bgType,
   autoTrimMargins,
+  cardWidth = TARGET_WIDTH_INCH,
+  cardHeight = TARGET_HEIGHT_INCH,
 }) => {
   return (
     <footer className="h-8 border-t border-slate-800/80 bg-slate-950/80 px-5 flex items-center justify-between text-xs text-slate-400 shrink-0 font-mono">
       <div className="flex items-center gap-3">
-        <span>Template: {TARGET_WIDTH_INCH}&quot; × {TARGET_HEIGHT_INCH}&quot;</span>
+        <span>Card: {cardWidth}&quot; × {cardHeight}&quot;</span>
         {template.name && (
           <span className="text-slate-300 max-w-36 truncate">{template.name}</span>
         )}

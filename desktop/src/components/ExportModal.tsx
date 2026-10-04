@@ -41,8 +41,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   if (!isOpen) return null;
 
-  const widthPx = Math.round(TARGET_WIDTH_INCH * dpi);
-  const heightPx = Math.round(TARGET_HEIGHT_INCH * dpi);
+  const cardWidth = options.cardWidth ?? TARGET_WIDTH_INCH;
+  const cardHeight = options.cardHeight ?? TARGET_HEIGHT_INCH;
+  const widthPx = Math.round(cardWidth * dpi);
+  const heightPx = Math.round(cardHeight * dpi);
 
   const effectiveOptions: ExportCardOptions = {
     ...options,
@@ -109,7 +111,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <div>
               <h2 className="font-semibold text-sm text-slate-100">Save & Export Card</h2>
               <p className="text-[11px] text-slate-400">
-                {TARGET_WIDTH_INCH}&quot; × {TARGET_HEIGHT_INCH}&quot; Card Template
+                {cardWidth}&quot; × {cardHeight}&quot; Card Template
               </p>
             </div>
           </div>
@@ -170,7 +172,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 <div>
                   <div className="text-xs font-medium">Print PDF</div>
                   <div className="text-[10px] text-slate-400">
-                    Exact {TARGET_WIDTH_INCH}&quot; × {TARGET_HEIGHT_INCH}&quot;
+                    Exact {cardWidth}&quot; × {cardHeight}&quot;
                   </div>
                 </div>
               </button>
