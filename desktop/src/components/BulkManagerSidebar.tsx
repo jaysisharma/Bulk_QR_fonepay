@@ -11,6 +11,7 @@ import {
   Loader2,
   Sparkles,
   Copy,
+  FolderTree,
 } from 'lucide-react';
 import {
   SHEET_TOTAL_SLOTS,
@@ -38,6 +39,7 @@ interface BulkManagerSidebarProps {
   onUpdateConfig: (newConfig: Partial<BulkSheetConfig>) => void;
   onOpenBulkExportModal?: () => void;
   onDirectPrint?: () => void;
+  onOpenFolderSplitter?: () => void;
 }
 
 export const BulkManagerSidebar: React.FC<BulkManagerSidebarProps> = ({
@@ -53,6 +55,7 @@ export const BulkManagerSidebar: React.FC<BulkManagerSidebarProps> = ({
   onClearBulkQrs,
   onRemoveQrItem,
   onUpdateConfig,
+  onOpenFolderSplitter,
 }) => {
   const effectiveTotalQrs = bulkQrs.length > 0 ? bulkQrs.length : (customQr ? 1 : 0);
   const totalSheets = Math.max(1, Math.ceil(Math.max(1, bulkQrs.length) / SHEET_TOTAL_SLOTS));
@@ -141,6 +144,19 @@ export const BulkManagerSidebar: React.FC<BulkManagerSidebarProps> = ({
               <span>Multi-Page PDF</span>
             </button>
           </div>
+
+          {/* Folder Splitter Tool Trigger */}
+          {onOpenFolderSplitter && (
+            <button
+              type="button"
+              onClick={onOpenFolderSplitter}
+              className="w-full flex items-center justify-center gap-2 p-2 rounded-lg bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-500/30 hover:border-indigo-500/60 text-indigo-300 hover:text-indigo-100 transition cursor-pointer text-[11px] font-medium shadow-sm"
+              title="Split 500, 600, 1000+ files into 132 files per folder (A, B, C...)"
+            >
+              <FolderTree className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <span>Split Folder into 132s (A, B, C...)</span>
+            </button>
+          )}
 
           {(customQr || onLoadSample132) && (
             <div className="grid grid-cols-2 gap-2 pt-0.5">

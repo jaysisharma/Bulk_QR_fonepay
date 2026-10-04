@@ -8,6 +8,7 @@ import {
   Printer,
   CreditCard,
   Grid3x3,
+  FolderTree,
 } from 'lucide-react';
 import {
   type AppMode,
@@ -22,6 +23,7 @@ interface HeaderBarProps {
   onOpenExportModal?: () => void;
   bulkCount?: number;
   onOpenBulkExportModal?: () => void;
+  onOpenFolderSplitter?: () => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -33,6 +35,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onOpenExportModal,
   bulkCount = 0,
   onOpenBulkExportModal,
+  onOpenFolderSplitter,
 }) => {
   return (
     <header className="h-14 border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md px-5 flex items-center justify-between shrink-0 z-20">
@@ -81,6 +84,18 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
       {/* Right: Minimal, focused controls */}
       <div className="flex items-center gap-3">
+        {/* Folder Splitter Tool */}
+        {onOpenFolderSplitter && (
+          <button
+            onClick={onOpenFolderSplitter}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-500/30 hover:border-indigo-500/50 text-indigo-300 hover:text-indigo-100 text-xs font-medium transition cursor-pointer shadow-sm"
+            title="Split large folder with 500-1000+ files into 132 files per folder (A, B, C...)"
+          >
+            <FolderTree className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Split Folder</span>
+          </button>
+        )}
+
         {/* Zoom Controls */}
         <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-1 text-slate-400">
           <button

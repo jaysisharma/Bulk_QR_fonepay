@@ -27,6 +27,7 @@ import { ExportModal } from './components/ExportModal';
 import { BulkSheetStage } from './components/BulkSheetStage';
 import { BulkManagerSidebar } from './components/BulkManagerSidebar';
 import { BulkExportModal } from './components/BulkExportModal';
+import { FolderSplitterModal } from './components/FolderSplitterModal';
 import {
   saveTemplateToDb,
   loadTemplateFromDb,
@@ -145,6 +146,7 @@ export default function App() {
 
   // Save / Export Modal
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
+  const [isFolderSplitterOpen, setIsFolderSplitterOpen] = useState<boolean>(false);
 
   // DOM Refs
   const templateFileInputRef = useRef<HTMLInputElement>(null);
@@ -922,6 +924,7 @@ export default function App() {
           onOpenExportModal={() => setIsExportModalOpen(true)}
           bulkCount={bulkQrs.length}
           onOpenBulkExportModal={() => setIsBulkExportModalOpen(true)}
+          onOpenFolderSplitter={() => setIsFolderSplitterOpen(true)}
         />
 
         {mode === 'single' ? (
@@ -1052,6 +1055,7 @@ export default function App() {
           onUpdateConfig={handleUpdateBulkConfig}
           onOpenBulkExportModal={() => setIsBulkExportModalOpen(true)}
           onDirectPrint={handleDirectPrint}
+          onOpenFolderSplitter={() => setIsFolderSplitterOpen(true)}
         />
       )}
 
@@ -1099,6 +1103,12 @@ export default function App() {
         bulkQrs={bulkQrs}
         customQr={customQr}
         config={bulkConfig}
+      />
+
+      {/* Split Large Folder (132 per Folder) Dialog */}
+      <FolderSplitterModal
+        isOpen={isFolderSplitterOpen}
+        onClose={() => setIsFolderSplitterOpen(false)}
       />
     </div>
   );
