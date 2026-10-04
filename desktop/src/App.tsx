@@ -203,6 +203,8 @@ export default function App() {
         qrY,
         qrWidth,
         qrHeight,
+        cardWidth,
+        cardHeight,
         bgType,
         qrColor,
         invertOnBlack,
@@ -218,7 +220,7 @@ export default function App() {
     } catch (e) {
       console.error('Failed to persist layout state:', e);
     }
-  }, [qrX, qrY, qrWidth, qrHeight, bgType, qrColor, invertOnBlack, whiteThreshold, innerPaddingPx, autoTrimMargins, pageBg, pageBgColor, showTemplateImage]);
+  }, [qrX, qrY, qrWidth, qrHeight, cardWidth, cardHeight, bgType, qrColor, invertOnBlack, whiteThreshold, innerPaddingPx, autoTrimMargins, pageBg, pageBgColor, showTemplateImage]);
 
   // Drag interaction state
   const dragInteractionRef = useRef<{
@@ -287,6 +289,8 @@ export default function App() {
       qrY,
       qrWidth,
       qrHeight,
+      cardWidth,
+      cardHeight,
       bgType,
       qrColor,
       invertOnBlack,
@@ -312,6 +316,8 @@ export default function App() {
     setQrY(preset.qrY);
     setQrWidth(preset.qrWidth);
     setQrHeight(preset.qrHeight);
+    if (typeof (preset as any).cardWidth === 'number') setCardWidth((preset as any).cardWidth);
+    if (typeof (preset as any).cardHeight === 'number') setCardHeight((preset as any).cardHeight);
     setBgType(preset.bgType);
     setQrColor(preset.qrColor);
     setInvertOnBlack(preset.invertOnBlack);
@@ -334,6 +340,8 @@ export default function App() {
   };
 
   const handleResetToDefault = () => {
+    setCardWidth(TARGET_WIDTH_INCH);
+    setCardHeight(TARGET_HEIGHT_INCH);
     setQrWidth(1.5);
     setQrHeight(1.5);
     setQrX(Number(((TARGET_WIDTH_INCH - 1.5) / 2).toFixed(4)));
@@ -514,6 +522,8 @@ export default function App() {
         qrY,
         qrWidth,
         qrHeight,
+        cardWidth,
+        cardHeight,
         bgType,
         qrColor,
         invertOnBlack,
@@ -760,10 +770,23 @@ export default function App() {
     setBulkConfig((prev) => ({ ...prev, ...partial }));
   };
 
+  const handleCardSizeChange = (newWidth: number, newHeight: number) => {
+    const clampedW = Math.max(1, Number(newWidth.toFixed(4)));
+    const clampedH = Math.max(1, Number(newHeight.toFixed(4)));
+    setCardWidth(clampedW);
+    setCardHeight(clampedH);
+    if (qrX + qrWidth > clampedW) {
+      setQrX(Math.max(0, Number((clampedW - qrWidth).toFixed(4))));
+    }
+    if (qrY + qrHeight > clampedH) {
+      setQrY(Math.max(0, Number((clampedH - qrHeight).toFixed(4))));
+    }
+  };
+
   // Center QR in template
   const handleCenter = () => {
-    setQrX(Number(((TARGET_WIDTH_INCH - qrWidth) / 2).toFixed(4)));
-    setQrY(Number(((TARGET_HEIGHT_INCH - qrHeight) / 2).toFixed(4)));
+    setQrX(Number(((cardWidth - qrWidth) / 2).toFixed(4)));
+    setQrY(Number(((cardHeight - qrHeight) / 2).toFixed(4)));
   };
 
   // Quick alignment
@@ -774,19 +797,19 @@ export default function App() {
 
   // Width change handler (strictly independent - never modifies height)
   const handleWidthChange = (newW: number) => {
-    const clampedW = Math.max(0.3, Math.min(TARGET_WIDTH_INCH, Number(newW.toFixed(4))));
+    const clampedW = Math.max(0.3, Math.min(cardWidth, Number(newW.toFixed(4))));
     setQrWidth(clampedW);
-    if (qrX + clampedW > TARGET_WIDTH_INCH) {
-      setQrX(Number((TARGET_WIDTH_INCH - clampedW).toFixed(4)));
+    if (qrX + clampedW > cardWidth) {
+      setQrX(Number((cardWidth - clampedW).toFixed(4)));
     }
   };
 
   // Height change handler (strictly independent - never modifies width)
   const handleHeightChange = (newH: number) => {
-    const clampedH = Math.max(0.3, Math.min(TARGET_HEIGHT_INCH, Number(newH.toFixed(4))));
+    const clampedH = Math.max(0.3, Math.min(cardHeight, Number(newH.toFixed(4))));
     setQrHeight(clampedH);
-    if (qrY + clampedH > TARGET_HEIGHT_INCH) {
-      setQrY(Number((TARGET_HEIGHT_INCH - clampedH).toFixed(4)));
+    if (qrY + clampedH > cardHeight) {
+      setQrY(Number((cardHeight - clampedH).toFixed(4)));
     }
   };
 
@@ -813,26 +836,26 @@ export default function App() {
       if (!current.mode || !templateStageRef.current) return;
 
       const rect = templateStageRef.current.getBoundingClientRect();
-      const pxPerInch = rect.width / TARGET_WIDTH_INCH;
+      const pxPerInch = rect.width / cardWidth;
 
       const dx = (moveEvt.clientX - current.startX) / pxPerInch;
       const dy = (moveEvt.clientY - current.startY) / pxPerInch;
 
       if (current.mode === 'move') {
-        const nextX = Math.max(0, Math.min(TARGET_WIDTH_INCH - current.initW, current.initX + dx));
-        const nextY = Math.max(0, Math.min(TARGET_HEIGHT_INCH - current.initH, current.initY + dy));
+        const nextX = Math.max(0, Math.min(cardWidth - current.initW, current.initX + dx));
+        const nextY = Math.max(0, Math.min(cardHeight - current.initH, current.initY + dy));
         setQrX(Number(nextX.toFixed(4)));
         setQrY(Number(nextY.toFixed(4)));
       } else if (current.mode === 'resize-se') {
-        const nextW = Math.max(0.3, Math.min(TARGET_WIDTH_INCH - current.initX, current.initW + dx));
-        const nextH = Math.max(0.3, Math.min(TARGET_HEIGHT_INCH - current.initY, current.initH + dy));
+        const nextW = Math.max(0.3, Math.min(cardWidth - current.initX, current.initW + dx));
+        const nextH = Math.max(0.3, Math.min(cardHeight - current.initY, current.initH + dy));
         setQrWidth(Number(nextW.toFixed(4)));
         setQrHeight(Number(nextH.toFixed(4)));
       } else if (current.mode === 'resize-e') {
-        const nextW = Math.max(0.3, Math.min(TARGET_WIDTH_INCH - current.initX, current.initW + dx));
+        const nextW = Math.max(0.3, Math.min(cardWidth - current.initX, current.initW + dx));
         setQrWidth(Number(nextW.toFixed(4)));
       } else if (current.mode === 'resize-s') {
-        const nextH = Math.max(0.3, Math.min(TARGET_HEIGHT_INCH - current.initY, current.initH + dy));
+        const nextH = Math.max(0.3, Math.min(cardHeight - current.initY, current.initH + dy));
         setQrHeight(Number(nextH.toFixed(4)));
       }
     };
@@ -949,6 +972,8 @@ export default function App() {
             pageBg={pageBg}
             pageBgColor={pageBgColor}
             showTemplateImage={showTemplateImage}
+            cardWidth={cardWidth}
+            cardHeight={cardHeight}
             qrX={qrX}
             qrY={qrY}
             qrWidth={qrWidth}
@@ -967,6 +992,8 @@ export default function App() {
               qrY,
               qrWidth,
               qrHeight,
+              cardWidth,
+              cardHeight,
               bgType,
               qrColor,
               invertOnBlack,
@@ -1008,6 +1035,9 @@ export default function App() {
           onApplyPreset={handleApplyPreset}
           onDeletePreset={handleDeletePreset}
           onResetToDefault={handleResetToDefault}
+          cardWidth={cardWidth}
+          cardHeight={cardHeight}
+          onCardSizeChange={handleCardSizeChange}
           autoTrimMargins={autoTrimMargins}
           onToggleAutoTrim={handleToggleAutoTrim}
           innerPaddingPx={innerPaddingPx}
@@ -1040,11 +1070,15 @@ export default function App() {
         <BulkManagerSidebar
           bulkQrs={bulkQrs}
           customQr={customQr}
+          cardWidth={cardWidth}
+          cardHeight={cardHeight}
           layout={{
             qrX,
             qrY,
             qrWidth,
             qrHeight,
+            cardWidth,
+            cardHeight,
             bgType,
             qrColor,
             invertOnBlack,
@@ -1082,6 +1116,8 @@ export default function App() {
           qrY,
           qrWidth,
           qrHeight,
+          cardWidth,
+          cardHeight,
           bgType,
           qrColor,
           innerPaddingPx,
@@ -1092,7 +1128,7 @@ export default function App() {
         onExportProjectBundle={handleExportProjectBundle}
       />
 
-      {/* Save & Export 132-QR Bulk Sheet Dialog */}
+      {/* Save & Export Bulk Sheet Dialog */}
       <BulkExportModal
         isOpen={isBulkExportModalOpen}
         onClose={() => setIsBulkExportModalOpen(false)}
@@ -1101,6 +1137,8 @@ export default function App() {
           qrY,
           qrWidth,
           qrHeight,
+          cardWidth,
+          cardHeight,
           bgType,
           qrColor,
           invertOnBlack,

@@ -22,8 +22,6 @@ import {
   type UploadedQrInfo,
   type PresetItem,
   CARD_SIZE_PRESETS,
-  TARGET_WIDTH_INCH,
-  TARGET_HEIGHT_INCH,
 } from '../types';
 import { PresetManager } from './PresetManager';
 

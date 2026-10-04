@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "qr-overlay-studio",
   "version": "0.1.0",
-  "identifier": "com.qroverlaystudio.app",
+  "identifier": "com.qroverlaystudio.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",

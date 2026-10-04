@@ -13,9 +13,6 @@ import {
 import {
   SHEET_COLS,
   SHEET_ROWS,
-  SHEET_TOTAL_SLOTS,
-  SHEET_WIDTH_INCH,
-  SHEET_HEIGHT_INCH,
   type BulkQrItem,
   type SavedLayoutState,
   type TemplateInfo,

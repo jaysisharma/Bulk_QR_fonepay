@@ -13,10 +13,8 @@ import {
   Copy,
   FolderTree,
   Maximize2,
-  Layers,
 } from 'lucide-react';
 import {
-  SHEET_TOTAL_SLOTS,
   SHEET_COLS,
   SHEET_ROWS,
   SHEET_CELL_WIDTH_INCH,

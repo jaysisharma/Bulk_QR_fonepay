@@ -2,9 +2,6 @@ import { jsPDF } from 'jspdf';
 import {
   SHEET_COLS,
   SHEET_ROWS,
-  SHEET_TOTAL_SLOTS,
-  SHEET_WIDTH_INCH,
-  SHEET_HEIGHT_INCH,
   SHEET_CELL_WIDTH_INCH,
   SHEET_CELL_HEIGHT_INCH,
   type BulkQrItem,
