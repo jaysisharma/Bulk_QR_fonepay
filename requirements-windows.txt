@@ -1,0 +1,13 @@
+altair>=5.0.0
+click>=8.0.0
+numpy>=1.24.0
+openpyxl>=3.1.0
+pandas>=2.0.0
+pillow>=10.0.0
+pymupdf>=1.23.0
+qrcode>=7.4.0
+pywebview>=5.0.0
+reportlab>=4.0.0
+streamlit>=1.30.0
+streamlit-cropper>=0.2.0
+streamlit-drawable-canvas>=0.9.0
