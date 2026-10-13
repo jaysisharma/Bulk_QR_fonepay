@@ -9,6 +9,7 @@ interface QrOverlayProps {
   qrColor: string;
   activeQrImageUrl: string | null;
   innerPaddingPx: number;
+  templateLayer?: 'back' | 'front';
   onStartDrag: (
     e: React.MouseEvent,
     mode: 'move' | 'resize-se' | 'resize-e' | 'resize-s'
@@ -24,11 +25,14 @@ export const QrOverlay: React.FC<QrOverlayProps> = ({
   qrColor,
   activeQrImageUrl,
   innerPaddingPx,
+  templateLayer = 'back',
   onStartDrag,
 }) => {
   return (
     <div
-      className={`absolute group cursor-move z-20 flex flex-col items-center justify-center outline outline-2 outline-indigo-500/90 print:outline-none shadow-2xl print:shadow-none ${bgType === 'white'
+      className={`absolute group cursor-move ${
+        templateLayer === 'front' ? 'z-10' : 'z-30'
+      } flex flex-col items-center justify-center outline outline-2 outline-indigo-500/90 print:outline-none shadow-2xl print:shadow-none ${bgType === 'white'
         ? 'bg-white'
         : bgType === 'black'
           ? 'bg-black'

@@ -15,6 +15,10 @@ import {
   Trash2,
   RotateCcw,
   CreditCard,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import {
   type BgType,
@@ -241,8 +245,8 @@ export const InspectorSidebar: React.FC<InspectorSidebarProps> = ({
               </div>
               <input
                 type="number"
-                min={0}
-                max={Math.max(0, Number((cardWidth - qrWidth).toFixed(4)))}
+                min={-2}
+                max={cardWidth + 5}
                 step={0.01}
                 value={qrX}
                 onChange={(e) => onXChange(Number(parseFloat(e.target.value) || 0))}
@@ -258,8 +262,8 @@ export const InspectorSidebar: React.FC<InspectorSidebarProps> = ({
               </div>
               <input
                 type="number"
-                min={0}
-                max={Math.max(0, Number((cardHeight - qrHeight).toFixed(4)))}
+                min={-2}
+                max={cardHeight + 5}
                 step={0.01}
                 value={qrY}
                 onChange={(e) => onYChange(Number(parseFloat(e.target.value) || 0))}
@@ -327,6 +331,52 @@ export const InspectorSidebar: React.FC<InspectorSidebarProps> = ({
             >
               Bottom Center
             </button>
+          </div>
+
+          {/* Nudge / Shift Position Buttons (Nudge right, left, up, down) */}
+          <div className="pt-1.5 space-y-1">
+            <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+              <span>NUDGE POSITION</span>
+              <span className="text-indigo-400">±0.05&quot;</span>
+            </div>
+            <div className="grid grid-cols-4 gap-1">
+              <button
+                type="button"
+                onClick={() => onXChange(Number((qrX - 0.05).toFixed(4)))}
+                className="py-1.5 px-1 rounded bg-slate-900/90 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white flex items-center justify-center gap-1 text-[10px] transition cursor-pointer"
+                title="Shift Left 0.05 inches"
+              >
+                <ArrowLeft className="w-3 h-3 text-indigo-400" />
+                <span>Left</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onXChange(Number((qrX + 0.05).toFixed(4)))}
+                className="py-1.5 px-1 rounded bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-indigo-200 hover:text-white flex items-center justify-center gap-1 text-[10px] font-medium transition cursor-pointer shadow-xs"
+                title="Shift Right 0.05 inches (Move right more)"
+              >
+                <span>Right</span>
+                <ArrowRight className="w-3 h-3 text-indigo-300" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onYChange(Number((qrY - 0.05).toFixed(4)))}
+                className="py-1.5 px-1 rounded bg-slate-900/90 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white flex items-center justify-center gap-1 text-[10px] transition cursor-pointer"
+                title="Shift Up 0.05 inches"
+              >
+                <ArrowUp className="w-3 h-3 text-indigo-400" />
+                <span>Up</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onYChange(Number((qrY + 0.05).toFixed(4)))}
+                className="py-1.5 px-1 rounded bg-slate-900/90 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white flex items-center justify-center gap-1 text-[10px] transition cursor-pointer"
+                title="Shift Down 0.05 inches"
+              >
+                <ArrowDown className="w-3 h-3 text-indigo-400" />
+                <span>Down</span>
+              </button>
+            </div>
           </div>
         </div>
 

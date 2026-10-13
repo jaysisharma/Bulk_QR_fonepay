@@ -783,12 +783,6 @@ export default function App() {
     const clampedH = Math.max(1, Number(newHeight.toFixed(4)));
     setCardWidth(clampedW);
     setCardHeight(clampedH);
-    if (qrX + qrWidth > clampedW) {
-      setQrX(Math.max(0, Number((clampedW - qrWidth).toFixed(4))));
-    }
-    if (qrY + qrHeight > clampedH) {
-      setQrY(Math.max(0, Number((clampedH - qrHeight).toFixed(4))));
-    }
   };
 
   // Center QR in template
@@ -805,20 +799,14 @@ export default function App() {
 
   // Width change handler (strictly independent - never modifies height)
   const handleWidthChange = (newW: number) => {
-    const clampedW = Math.max(0.3, Math.min(cardWidth, Number(newW.toFixed(4))));
+    const clampedW = Math.max(0.3, Number(newW.toFixed(4)));
     setQrWidth(clampedW);
-    if (qrX + clampedW > cardWidth) {
-      setQrX(Number((cardWidth - clampedW).toFixed(4)));
-    }
   };
 
   // Height change handler (strictly independent - never modifies width)
   const handleHeightChange = (newH: number) => {
-    const clampedH = Math.max(0.3, Math.min(cardHeight, Number(newH.toFixed(4))));
+    const clampedH = Math.max(0.3, Number(newH.toFixed(4)));
     setQrHeight(clampedH);
-    if (qrY + clampedH > cardHeight) {
-      setQrY(Number((cardHeight - clampedH).toFixed(4)));
-    }
   };
 
   // Direct mouse drag and resize on the canvas
@@ -850,20 +838,20 @@ export default function App() {
       const dy = (moveEvt.clientY - current.startY) / pxPerInch;
 
       if (current.mode === 'move') {
-        const nextX = Math.max(0, Math.min(cardWidth - current.initW, current.initX + dx));
-        const nextY = Math.max(0, Math.min(cardHeight - current.initH, current.initY + dy));
+        const nextX = Math.max(-2, Math.min(cardWidth + 2, current.initX + dx));
+        const nextY = Math.max(-2, Math.min(cardHeight + 2, current.initY + dy));
         setQrX(Number(nextX.toFixed(4)));
         setQrY(Number(nextY.toFixed(4)));
       } else if (current.mode === 'resize-se') {
-        const nextW = Math.max(0.3, Math.min(cardWidth - current.initX, current.initW + dx));
-        const nextH = Math.max(0.3, Math.min(cardHeight - current.initY, current.initH + dy));
+        const nextW = Math.max(0.3, Math.min(cardWidth * 2, current.initW + dx));
+        const nextH = Math.max(0.3, Math.min(cardHeight * 2, current.initH + dy));
         setQrWidth(Number(nextW.toFixed(4)));
         setQrHeight(Number(nextH.toFixed(4)));
       } else if (current.mode === 'resize-e') {
-        const nextW = Math.max(0.3, Math.min(cardWidth - current.initX, current.initW + dx));
+        const nextW = Math.max(0.3, Math.min(cardWidth * 2, current.initW + dx));
         setQrWidth(Number(nextW.toFixed(4)));
       } else if (current.mode === 'resize-s') {
-        const nextH = Math.max(0.3, Math.min(cardHeight - current.initY, current.initH + dy));
+        const nextH = Math.max(0.3, Math.min(cardHeight * 2, current.initH + dy));
         setQrHeight(Number(nextH.toFixed(4)));
       }
     };
@@ -877,6 +865,43 @@ export default function App() {
     window.addEventListener('mousemove', handlePointerMove);
     window.addEventListener('mouseup', handlePointerUp);
   };
+
+  // Keyboard arrow keys for precision nudging (ArrowLeft, ArrowRight, ArrowUp, ArrowDown)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept if user is typing in an input, textarea, or contentEditable element
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      // Shift key gives a larger 0.1" jump, standard gives 0.02" precision nudge
+      const step = e.shiftKey ? 0.1 : 0.02;
+
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setQrX((prev) => Number((prev + step).toFixed(4)));
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setQrX((prev) => Number((prev - step).toFixed(4)));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setQrY((prev) => Number((prev - step).toFixed(4)));
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setQrY((prev) => Number((prev + step).toFixed(4)));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Determine active QR image URL
   const activeQrImageUrl = customQr
