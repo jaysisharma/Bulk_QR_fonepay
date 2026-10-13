@@ -9,6 +9,8 @@ import {
   CreditCard,
   Grid3x3,
   FolderTree,
+  Upload,
+  Layers,
 } from 'lucide-react';
 import {
   type AppMode,
@@ -24,6 +26,9 @@ interface HeaderBarProps {
   bulkCount?: number;
   onOpenBulkExportModal?: () => void;
   onOpenFolderSplitter?: () => void;
+  onUploadQr?: () => void;
+  templateLayer?: 'back' | 'front';
+  onToggleTemplateLayer?: () => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -36,6 +41,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   bulkCount = 0,
   onOpenBulkExportModal,
   onOpenFolderSplitter,
+  onUploadQr,
+  templateLayer = 'back',
+  onToggleTemplateLayer,
 }) => {
   return (
     <header className="h-14 border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md px-5 flex items-center justify-between shrink-0 z-20">
@@ -135,6 +143,38 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
         {mode === 'single' ? (
           <>
+            {/* Upload Single PDF/QR Button */}
+            {onUploadQr && (
+              <button
+                onClick={onUploadQr}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 hover:border-indigo-500/70 text-indigo-200 text-xs font-medium transition cursor-pointer shadow-sm"
+                title="Upload Single PDF or Image QR"
+              >
+                <Upload className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Upload QR (PDF)</span>
+              </button>
+            )}
+
+            {/* Move Template Back / Bring PDF Front Button */}
+            {onToggleTemplateLayer && (
+              <button
+                onClick={onToggleTemplateLayer}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition cursor-pointer shadow-sm ${
+                  templateLayer === 'front'
+                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                    : 'bg-slate-900 hover:bg-slate-800 border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white'
+                }`}
+                title={
+                  templateLayer === 'back'
+                    ? 'Template is currently in BACK (QR is in front). Click to bring template to front.'
+                    : 'Template is currently in FRONT (QR is in back). Click to move template to back.'
+                }
+              >
+                <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                <span>{templateLayer === 'back' ? 'Template: Back (QR Front)' : 'Template: Front (QR Back)'}</span>
+              </button>
+            )}
+
             {onDirectPrint && (
               <button
                 onClick={onDirectPrint}

@@ -12,6 +12,7 @@ interface CanvasStageProps {
   pageBg: PageBgType;
   pageBgColor?: string;
   showTemplateImage?: boolean;
+  templateLayer?: 'back' | 'front';
   // QR overlay props
   qrX: number;
   qrY: number;
@@ -38,6 +39,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   pageBg = 'white',
   pageBgColor = '#ffffff',
   showTemplateImage = true,
+  templateLayer = 'back',
   cardWidth = TARGET_WIDTH_INCH,
   cardHeight = TARGET_HEIGHT_INCH,
   qrX,
@@ -108,7 +110,9 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
             <img
               src={templateUrl}
               alt="Template"
-              className="absolute inset-0 w-full h-full object-fill pointer-events-none block select-none"
+              className={`absolute inset-0 w-full h-full object-fill pointer-events-none block select-none ${
+                templateLayer === 'front' ? 'z-25' : 'z-0'
+              }`}
               draggable={false}
             />
           ) : !templateUrl ? (

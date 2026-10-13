@@ -15,6 +15,7 @@ export interface ExportCardOptions {
   pageBg?: PageBgType;
   pageBgColor?: string;
   showTemplateImage?: boolean;
+  templateLayer?: 'back' | 'front';
   allowFallbackQr?: boolean;
   cardWidth?: number;
   cardHeight?: number;
@@ -112,51 +113,61 @@ export async function renderCompositeCanvas(options: ExportCardOptions): Promise
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
   }
 
-  // 2. Draw Template Background (if present and not hidden)
+  const templateLayer = options.templateLayer || 'back';
   const shouldDrawTemplate = options.templateUrl && options.showTemplateImage !== false;
-  if (shouldDrawTemplate && options.templateUrl) {
-    const templateImg = await loadImage(options.templateUrl);
-    // Draw template to fill exact dimensions
-    ctx.drawImage(templateImg, 0, 0, canvasWidth, canvasHeight);
-  }
 
-  // 2. Compute QR Pixel Coordinates (based on physical inches)
-  const pxPerInch = canvasWidth / cardWidth;
-  const qrX_px = options.qrX * pxPerInch;
-  const qrY_px = options.qrY * pxPerInch;
-  const qrW_px = options.qrWidth * pxPerInch;
-  const qrH_px = options.qrHeight * pxPerInch;
-
-  // 3. Draw QR Overlay only if active QR exists or fallback is explicitly requested
-  const hasQr = !!options.activeQrImageUrl;
-  const shouldRenderFallback = !hasQr && options.allowFallbackQr === true;
-
-  if (hasQr || shouldRenderFallback) {
-    if (options.bgType === 'white') {
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(qrX_px, qrY_px, qrW_px, qrH_px);
-    } else if (options.bgType === 'black') {
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(qrX_px, qrY_px, qrW_px, qrH_px);
+  const drawTemplate = async () => {
+    if (shouldDrawTemplate && options.templateUrl) {
+      const templateImg = await loadImage(options.templateUrl);
+      ctx.drawImage(templateImg, 0, 0, canvasWidth, canvasHeight);
     }
+  };
 
-    const scaleRatio = dpi / 96;
-    const scaledPadding = options.innerPaddingPx * scaleRatio;
-    const drawX = qrX_px + scaledPadding;
-    const drawY = qrY_px + scaledPadding;
-    const drawW = Math.max(1, qrW_px - (scaledPadding * 2));
-    const drawH = Math.max(1, qrH_px - (scaledPadding * 2));
+  const drawQrOverlay = async () => {
+    const pxPerInch = canvasWidth / cardWidth;
+    const qrX_px = options.qrX * pxPerInch;
+    const qrY_px = options.qrY * pxPerInch;
+    const qrW_px = options.qrWidth * pxPerInch;
+    const qrH_px = options.qrHeight * pxPerInch;
 
-    if (options.activeQrImageUrl) {
-      const qrImg = await loadImage(options.activeQrImageUrl);
-      drawImageContained(ctx, qrImg, drawX, drawY, drawW, drawH);
-    } else if (shouldRenderFallback) {
-      const effectiveFill = options.bgType === 'black' ? '#ffffff' : options.qrColor;
-      const svgStr = getSampleQrSvgString(effectiveFill);
-      const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgStr)}`;
-      const qrImg = await loadImage(svgUrl);
-      drawImageContained(ctx, qrImg, drawX, drawY, drawW, drawH);
+    const hasQr = !!options.activeQrImageUrl;
+    const shouldRenderFallback = !hasQr && options.allowFallbackQr === true;
+
+    if (hasQr || shouldRenderFallback) {
+      if (options.bgType === 'white') {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(qrX_px, qrY_px, qrW_px, qrH_px);
+      } else if (options.bgType === 'black') {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(qrX_px, qrY_px, qrW_px, qrH_px);
+      }
+
+      const scaleRatio = dpi / 96;
+      const scaledPadding = options.innerPaddingPx * scaleRatio;
+      const drawX = qrX_px + scaledPadding;
+      const drawY = qrY_px + scaledPadding;
+      const drawW = Math.max(1, qrW_px - (scaledPadding * 2));
+      const drawH = Math.max(1, qrH_px - (scaledPadding * 2));
+
+      if (options.activeQrImageUrl) {
+        const qrImg = await loadImage(options.activeQrImageUrl);
+        drawImageContained(ctx, qrImg, drawX, drawY, drawW, drawH);
+      } else if (shouldRenderFallback) {
+        const effectiveFill = options.bgType === 'black' ? '#ffffff' : options.qrColor;
+        const svgStr = getSampleQrSvgString(effectiveFill);
+        const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgStr)}`;
+        const qrImg = await loadImage(svgUrl);
+        drawImageContained(ctx, qrImg, drawX, drawY, drawW, drawH);
+      }
     }
+  };
+
+  if (templateLayer === 'front') {
+    await drawQrOverlay();
+    await drawTemplate();
+  } else {
+    await drawTemplate();
+    await drawQrOverlay();
   }
 
   return canvas;

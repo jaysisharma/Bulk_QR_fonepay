@@ -61,6 +61,7 @@ function getInitialState(): SavedLayoutState {
         pageBg: parsed.pageBg || 'white',
         pageBgColor: parsed.pageBgColor || '#ffffff',
         showTemplateImage: parsed.showTemplateImage ?? true,
+        templateLayer: parsed.templateLayer || 'back',
       };
     }
   } catch (e) {
@@ -82,6 +83,7 @@ function getInitialState(): SavedLayoutState {
     pageBg: 'white',
     pageBgColor: '#ffffff',
     showTemplateImage: true,
+    templateLayer: 'back',
   };
 }
 
@@ -129,6 +131,7 @@ export default function App() {
   const [pageBg, setPageBg] = useState<PageBgType>(initialSaved.pageBg || 'white');
   const [pageBgColor, setPageBgColor] = useState<string>(initialSaved.pageBgColor || '#ffffff');
   const [showTemplateImage, setShowTemplateImage] = useState<boolean>(initialSaved.showTemplateImage ?? true);
+  const [templateLayer, setTemplateLayer] = useState<'back' | 'front'>(initialSaved.templateLayer || 'back');
 
   // Presets list
   const [presets, setPresets] = useState<PresetItem[]>(getInitialPresets);
@@ -214,13 +217,14 @@ export default function App() {
         pageBg,
         pageBgColor,
         showTemplateImage,
+        templateLayer,
         updatedAt: new Date().toISOString(),
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
     } catch (e) {
       console.error('Failed to persist layout state:', e);
     }
-  }, [qrX, qrY, qrWidth, qrHeight, cardWidth, cardHeight, bgType, qrColor, invertOnBlack, whiteThreshold, innerPaddingPx, autoTrimMargins, pageBg, pageBgColor, showTemplateImage]);
+  }, [qrX, qrY, qrWidth, qrHeight, cardWidth, cardHeight, bgType, qrColor, invertOnBlack, whiteThreshold, innerPaddingPx, autoTrimMargins, pageBg, pageBgColor, showTemplateImage, templateLayer]);
 
   // Drag interaction state
   const dragInteractionRef = useRef<{
@@ -300,6 +304,7 @@ export default function App() {
       pageBg,
       pageBgColor,
       showTemplateImage,
+      templateLayer,
       updatedAt: new Date().toISOString(),
     };
     const updated = [newPreset, ...presets];
@@ -327,6 +332,7 @@ export default function App() {
     if (preset.pageBg) setPageBg(preset.pageBg);
     if (preset.pageBgColor) setPageBgColor(preset.pageBgColor);
     if (preset.showTemplateImage !== undefined) setShowTemplateImage(preset.showTemplateImage);
+    if ((preset as any).templateLayer !== undefined) setTemplateLayer((preset as any).templateLayer);
   };
 
   const handleDeletePreset = (id: string) => {
@@ -350,6 +356,7 @@ export default function App() {
     setAutoTrimMargins(true);
     setPageBg('white');
     setShowTemplateImage(true);
+    setTemplateLayer('back');
   };
 
   // Direct print handler (prints exact 4.2035" x 6.7035" card)
@@ -533,6 +540,7 @@ export default function App() {
         pageBg,
         pageBgColor,
         showTemplateImage,
+        templateLayer,
         updatedAt: new Date().toISOString(),
       },
       template,
@@ -960,6 +968,9 @@ export default function App() {
           bulkCount={bulkQrs.length}
           onOpenBulkExportModal={() => setIsBulkExportModalOpen(true)}
           onOpenFolderSplitter={() => setIsFolderSplitterOpen(true)}
+          onUploadQr={() => qrFileInputRef.current?.click()}
+          templateLayer={templateLayer}
+          onToggleTemplateLayer={() => setTemplateLayer((prev) => (prev === 'back' ? 'front' : 'back'))}
         />
 
         {mode === 'single' ? (
@@ -972,6 +983,7 @@ export default function App() {
             pageBg={pageBg}
             pageBgColor={pageBgColor}
             showTemplateImage={showTemplateImage}
+            templateLayer={templateLayer}
             cardWidth={cardWidth}
             cardHeight={cardHeight}
             qrX={qrX}
@@ -1023,6 +1035,8 @@ export default function App() {
           onPageBgChange={setPageBg}
           showTemplateImage={showTemplateImage}
           onToggleShowTemplateImage={handleToggleShowTemplateImage}
+          templateLayer={templateLayer}
+          onToggleTemplateLayer={() => setTemplateLayer((prev) => (prev === 'back' ? 'front' : 'back'))}
           hasTemplate={!!template.url}
           onClearTemplate={handleClearTemplate}
           onDirectPrint={handleDirectPrint}
@@ -1088,6 +1102,7 @@ export default function App() {
             pageBg,
             pageBgColor,
             showTemplateImage,
+            templateLayer,
           }}
           config={bulkConfig}
           isProcessing={isProcessingBulk}
@@ -1124,6 +1139,7 @@ export default function App() {
           pageBg,
           pageBgColor,
           showTemplateImage,
+          templateLayer,
         }}
         onExportProjectBundle={handleExportProjectBundle}
       />

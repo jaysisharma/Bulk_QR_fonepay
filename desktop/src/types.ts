@@ -107,6 +107,7 @@ export interface SavedLayoutState {
   pageBg?: PageBgType;
   pageBgColor?: string;
   showTemplateImage?: boolean;
+  templateLayer?: 'back' | 'front';
   cardWidth?: number;
   cardHeight?: number;
   updatedAt?: string;
