@@ -21,6 +21,8 @@ interface HeaderBarProps {
   onModeChange: (mode: AppMode) => void;
   zoom: number;
   onZoomChange: (newZoom: number) => void;
+  /** Reset zoom and pan to the default view */
+  onResetView?: () => void;
   onDirectPrint?: () => void;
   onOpenExportModal?: () => void;
   bulkCount?: number;
@@ -36,6 +38,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onModeChange,
   zoom,
   onZoomChange,
+  onResetView,
   onDirectPrint,
   onOpenExportModal,
   bulkCount = 0,
@@ -123,7 +126,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           <button
             onClick={() => {
               const step = mode === 'bulk' ? 0.02 : 0.1;
-              const maxZ = mode === 'bulk' ? 0.8 : 2.0;
+              const maxZ = mode === 'bulk' ? 1.5 : 2.0;
               onZoomChange(Math.min(maxZ, Number((zoom + step).toFixed(2))));
             }}
             title="Zoom In"
@@ -133,7 +136,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           </button>
           <div className="w-px h-3.5 bg-slate-800 mx-0.5" />
           <button
-            onClick={() => onZoomChange(mode === 'bulk' ? 0.12 : 1)}
+            onClick={() => (onResetView ? onResetView() : onZoomChange(mode === 'bulk' ? 0.12 : 1))}
             title={mode === 'bulk' ? 'Fit Sheet View (~12%)' : 'Reset 100%'}
             className="p-1 hover:text-slate-200 hover:bg-slate-800 rounded transition cursor-pointer text-xs"
           >

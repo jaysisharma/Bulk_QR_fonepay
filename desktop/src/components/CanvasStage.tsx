@@ -1,5 +1,5 @@
 import { Upload, Maximize2, Sparkles, Printer } from 'lucide-react';
-import { TARGET_WIDTH_INCH, TARGET_HEIGHT_INCH, type BgType, type PageBgType } from '../types';
+import { TARGET_WIDTH_INCH, TARGET_HEIGHT_INCH, type BgType, type DragMode, type PageBgType } from '../types';
 import { QrOverlay } from './QrOverlay';
 
 interface CanvasStageProps {
@@ -27,7 +27,7 @@ interface CanvasStageProps {
   cardHeight?: number;
   onStartDrag: (
     e: React.MouseEvent,
-    mode: 'move' | 'resize-se' | 'resize-e' | 'resize-s'
+    mode: DragMode
   ) => void;
 }
 
@@ -67,7 +67,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
         <div
           ref={templateStageRef}
           id="printable-card"
-          className={`relative rounded-xl overflow-hidden select-none transition-all shadow-2xl ${
+          className={`relative rounded-none overflow-hidden select-none transition-all shadow-2xl ${
             isWhitePage
               ? 'bg-white ring-1 ring-slate-300 shadow-xl shadow-black/20'
               : pageBg === 'dark'

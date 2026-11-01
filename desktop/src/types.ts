@@ -56,6 +56,23 @@ export const CARD_OPTIONS: { id: CardOptionId; label: string; defaultSize: CardO
 ];
 
 export type AppMode = 'single' | 'bulk';
+
+/** Bulk sheet zoom limits (mouse wheel and header buttons) */
+export const BULK_MIN_ZOOM = 0.04;
+export const BULK_MAX_ZOOM = 1.5;
+export const BULK_FIT_ZOOM = 0.12;
+
+/** QR box drag: move, or resize from an edge (n/s/e/w) or corner */
+export type DragMode =
+  | 'move'
+  | 'resize-n'
+  | 'resize-s'
+  | 'resize-e'
+  | 'resize-w'
+  | 'resize-ne'
+  | 'resize-nw'
+  | 'resize-se'
+  | 'resize-sw';
 export type BgType = 'white' | 'black' | 'transparent';
 export type PageBgType = 'white' | 'dark' | 'transparent' | 'custom';
 

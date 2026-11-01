@@ -13,6 +13,7 @@ import {
   Copy,
   FolderTree,
   Maximize2,
+  Crop,
 } from 'lucide-react';
 import {
   SHEET_COLS,
@@ -52,6 +53,8 @@ interface BulkManagerSidebarProps {
   onOpenBulkExportModal?: () => void;
   onDirectPrint?: () => void;
   onOpenFolderSplitter?: () => void;
+  autoTrimMargins: boolean;
+  onToggleAutoTrim: () => void;
 }
 
 export const BulkManagerSidebar: React.FC<BulkManagerSidebarProps> = ({
@@ -74,6 +77,8 @@ export const BulkManagerSidebar: React.FC<BulkManagerSidebarProps> = ({
   onRemoveQrItem,
   onUpdateConfig,
   onOpenFolderSplitter,
+  autoTrimMargins,
+  onToggleAutoTrim,
 }) => {
   const cardW = cardWidth || layout.cardWidth || SHEET_CELL_WIDTH_INCH;
   const cardH = cardHeight || layout.cardHeight || SHEET_CELL_HEIGHT_INCH;
@@ -392,6 +397,31 @@ export const BulkManagerSidebar: React.FC<BulkManagerSidebarProps> = ({
             Sheet Options
           </div>
           <div className="space-y-1.5">
+            {/* Trim Quiet Zone: OFF keeps the white margins exactly as in your QR files */}
+            <div className="flex items-center justify-between p-2 rounded-lg bg-slate-900 border border-slate-800">
+              <div className="flex items-center gap-2">
+                <Crop className="w-3.5 h-3.5 text-slate-400" />
+                <span className="text-[11px] text-slate-200">Trim Quiet Zone</span>
+              </div>
+              <button
+                type="button"
+                onClick={onToggleAutoTrim}
+                disabled={isProcessing}
+                title={
+                  autoTrimMargins
+                    ? 'ON: white margins around each QR file are cut off. Click to keep them.'
+                    : 'OFF: QR files keep their white margins exactly as made. Click to trim them.'
+                }
+                className={`px-2 py-0.5 rounded text-[10px] font-mono transition cursor-pointer disabled:opacity-50 ${
+                  autoTrimMargins
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                    : 'bg-slate-800 text-slate-400 border border-slate-700'
+                }`}
+              >
+                {autoTrimMargins ? 'ON' : 'OFF'}
+              </button>
+            </div>
+
             {/* Cut Guides */}
             <div className="flex items-center justify-between p-2 rounded-lg bg-slate-900 border border-slate-800">
               <div className="flex items-center gap-2">

@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   SHEET_COLS,
   SHEET_ROWS,
   SHEET_CELL_WIDTH_INCH,
   SHEET_CELL_HEIGHT_INCH,
   DEFAULT_CUT_LINE_THICKNESS_PT,
+  BULK_MIN_ZOOM,
+  BULK_MAX_ZOOM,
   type BulkQrItem,
   type SavedLayoutState,
   type TemplateInfo,
@@ -25,6 +27,10 @@ interface BulkSheetStageProps {
   onOpenMultiPagePdfPicker?: () => void;
   onLoadSample132?: () => void;
   onSelectSlot?: (globalIndex: number) => void;
+  /** View offset in screen px (applied before the zoom) */
+  pan?: { x: number; y: number };
+  /** Mouse wheel zoom / drag-to-pan report the new view here */
+  onViewChange?: (zoom: number, pan: { x: number; y: number }) => void;
 }
 
 export const BulkSheetStage: React.FC<BulkSheetStageProps> = ({
@@ -38,7 +44,58 @@ export const BulkSheetStage: React.FC<BulkSheetStageProps> = ({
   onOpenMultiPagePdfPicker,
   onLoadSample132,
   onSelectSlot,
+  pan = { x: 0, y: 0 },
+  onViewChange,
 }) => {
+  const viewportRef = useRef<HTMLElement>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  // Latest view for the native wheel listener (registered once)
+  const viewRef = useRef({ zoom, pan, onViewChange });
+  viewRef.current = { zoom, pan, onViewChange };
+
+  // Mouse wheel zooms toward the cursor. Native listener so preventDefault works (React wheel is passive).
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const handleWheel = (e: WheelEvent) => {
+      const { zoom: z, pan: p, onViewChange: report } = viewRef.current;
+      if (!report) return;
+      e.preventDefault();
+      const factor = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015));
+      const nextZoom = Math.min(BULK_MAX_ZOOM, Math.max(BULK_MIN_ZOOM, z * factor));
+      if (nextZoom === z) return;
+      // Sheet is centred in the viewport and scaled from its centre, so keep the point under the cursor fixed
+      const rect = el.getBoundingClientRect();
+      const ox = e.clientX - (rect.left + rect.width / 2 + p.x);
+      const oy = e.clientY - (rect.top + rect.height / 2 + p.y);
+      const k = 1 - nextZoom / z;
+      report(Number(nextZoom.toFixed(4)), { x: p.x + ox * k, y: p.y + oy * k });
+    };
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, []);
+
+  // Drag anywhere on the sheet/background to pan 
+  const handlePanStart = (e: React.MouseEvent) => {
+    if (!onViewChange || e.button !== 0) return;
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startPan = pan;
+    setIsPanning(true);
+    const handleMove = (ev: MouseEvent) => {
+      const { zoom: z, onViewChange: report } = viewRef.current;
+      report?.(z, { x: startPan.x + ev.clientX - startX, y: startPan.y + ev.clientY - startY });
+    };
+    const handleUp = () => {
+      setIsPanning(false);
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+  };
+
   const isWhitePage = layout.pageBg === 'white';
   const effectiveBgColor =
     isWhitePage
@@ -70,11 +127,21 @@ export const BulkSheetStage: React.FC<BulkSheetStageProps> = ({
   const activeSheet = config.activeSheetIndex;
 
   return (
-    <main className="flex-1 relative overflow-auto p-8 flex items-center justify-center bg-[radial-gradient(#1e2230_1px,transparent_1px)] [background-size:20px_20px]">
+    <main
+      ref={viewportRef}
+      onMouseDown={handlePanStart}
+      className={`flex-1 relative overflow-hidden p-8 flex items-center justify-center bg-[radial-gradient(#1e2230_1px,transparent_1px)] [background-size:20px_20px] ${
+        isPanning ? 'cursor-grabbing' : 'cursor-grab'
+      }`}
+      title="Scroll to zoom • drag to move the view"
+    >
       <div
         id="printable-card-wrapper"
         className="flex items-center justify-center shrink-0"
-        style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+        style={{
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+          transformOrigin: 'center center',
+        }}
       >
         {/* Bulk Sheet Container */}
         <div
@@ -123,7 +190,10 @@ export const BulkSheetStage: React.FC<BulkSheetStageProps> = ({
           </div>
 
           {/* Quick Action Bar for Bulk Mode (Non-blocking) */}
-          <div className="absolute top-3 right-3 z-30 flex items-center gap-2 print:hidden print-hide">
+          <div
+            className="absolute top-3 right-3 z-30 flex items-center gap-2 print:hidden print-hide"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
               onClick={onOpenBulkPicker}
@@ -179,7 +249,7 @@ export const BulkSheetStage: React.FC<BulkSheetStageProps> = ({
                 <div
                   key={slotIndex}
                   onClick={() => onSelectSlot && onSelectSlot(globalSlotIndex)}
-                  className="relative overflow-hidden box-border group cursor-pointer transition-colors"
+                  className="relative overflow-hidden box-border group transition-colors"
                   style={{
                     width: `${cellW}in`,
                     height: `${cellH}in`,
@@ -198,7 +268,7 @@ export const BulkSheetStage: React.FC<BulkSheetStageProps> = ({
                     />
                   )}
 
-                  {/* QR Code Overlay (rendered when an active QR is placed in this slot) */}
+                  {/* QR Code Overlay (view only; position/size is edited in the Single Card designer) */}
                   {activeQrUrl && (
                     <div
                       className={`absolute flex flex-col items-center justify-center ${

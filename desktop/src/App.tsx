@@ -9,6 +9,8 @@ import {
   type BgType,
   type PageBgType,
   type AppMode,
+  type DragMode,
+  BULK_FIT_ZOOM,
   type BulkQrItem,
   type BulkSheetConfig,
   type CardOptionId,
@@ -50,6 +52,7 @@ const ACTIVE_CARD_OPTION_KEY = 'qr_template_studio_active_card_option';
 const CARD_OPTION_SIZES_KEY = 'qr_template_studio_card_option_sizes';
 const TEMPLATE_LAYERS_KEY = 'qr_template_studio_template_layers';
 const SHOW_SAMPLE_QR_KEY = 'qr_template_studio_show_sample_qr';
+const QR_LAYOUTS_KEY = 'qr_template_studio_qr_layouts';
 
 function getInitialState(): SavedLayoutState {
   try {
@@ -136,6 +139,41 @@ function getInitialCardOptionSizes(): Record<CardOptionId, CardOptionSize> {
   return sizes;
 }
 
+// Each card option keeps its own QR position & size (cards differ in size, so a shared X/Y drifts off-centre)
+type QrBox = { qrX: number; qrY: number; qrWidth: number; qrHeight: number };
+
+/** QR of the given size, clamped to the card and centred on it */
+function getCenteredQrBox(width: number, height: number, card: CardOptionSize): QrBox {
+  const qrWidth = Number(Math.min(width, card.cardWidth).toFixed(4));
+  const qrHeight = Number(Math.min(height, card.cardHeight).toFixed(4));
+  return {
+    qrX: Number(((card.cardWidth - qrWidth) / 2).toFixed(4)),
+    qrY: Number(((card.cardHeight - qrHeight) / 2).toFixed(4)),
+    qrWidth,
+    qrHeight,
+  };
+}
+
+function getInitialQrLayouts(): Record<CardOptionId, QrBox> {
+  try {
+    const raw = localStorage.getItem(QR_LAYOUTS_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      if (saved.option1 && saved.option2) return saved;
+    }
+  } catch (e) {
+    console.error('Failed to load QR layouts from localStorage:', e);
+  }
+  // First run: Option 1 keeps the QR the user already had; other options get it centred on their own card
+  const saved = getInitialState();
+  const sizes = getInitialCardOptionSizes();
+  const layouts = Object.fromEntries(
+    CARD_OPTIONS.map((o) => [o.id, getCenteredQrBox(saved.qrWidth, saved.qrHeight, sizes[o.id])])
+  ) as Record<CardOptionId, QrBox>;
+  layouts.option1 = { qrX: saved.qrX, qrY: saved.qrY, qrWidth: saved.qrWidth, qrHeight: saved.qrHeight };
+  return layouts;
+}
+
 function getDefaultSheetGrid(cardWidth: number, cardHeight: number): SheetGrid {
   return {
     sheetCols: SHEET_COLS,
@@ -168,6 +206,21 @@ export default function App() {
 
   // Zoom & Viewport
   const [zoom, setZoom] = useState<number>(1);
+  // Bulk sheet pan offset (screen px), used with mouse-wheel zoom and drag-to-pan
+  const [bulkPan, setBulkPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const handleBulkViewChange = (nextZoom: number, nextPan: { x: number; y: number }) => {
+    setZoom(nextZoom);
+    setBulkPan(nextPan);
+  };
+  // Header +/- buttons: zoom around the middle of the view (keeps what you're looking at centred)
+  const handleHeaderZoomChange = (nextZoom: number) => {
+    if (mode === 'bulk') setBulkPan((p) => ({ x: (p.x * nextZoom) / zoom, y: (p.y * nextZoom) / zoom }));
+    setZoom(nextZoom);
+  };
+  const handleResetView = () => {
+    setBulkPan({ x: 0, y: 0 });
+    setZoom(mode === 'bulk' ? BULK_FIT_ZOOM : 1);
+  };
   const [isDraggingFile, setIsDraggingFile] = useState<boolean>(false);
 
   // Load persistent initial layout
@@ -183,10 +236,28 @@ export default function App() {
   const [cardHeight, setCardHeight] = useState<number>(cardOptionSizes[activeCardOption].cardHeight);
 
   // QR Overlay state (in physical inches) - preserved across new QR uploads
-  const [qrWidth, setQrWidth] = useState<number>(initialSaved.qrWidth);
-  const [qrHeight, setQrHeight] = useState<number>(initialSaved.qrHeight);
-  const [qrX, setQrX] = useState<number>(initialSaved.qrX);
-  const [qrY, setQrY] = useState<number>(initialSaved.qrY);
+  const [qrLayouts, setQrLayouts] = useState<Record<CardOptionId, QrBox>>(getInitialQrLayouts);
+  const [qrWidth, setQrWidth] = useState<number>(qrLayouts[activeCardOption].qrWidth);
+  const [qrHeight, setQrHeight] = useState<number>(qrLayouts[activeCardOption].qrHeight);
+  const [qrX, setQrX] = useState<number>(qrLayouts[activeCardOption].qrX);
+  const [qrY, setQrY] = useState<number>(qrLayouts[activeCardOption].qrY);
+
+  // Remember the active option's QR box (drags, inputs, presets and resets all land here)
+  useEffect(() => {
+    setQrLayouts((prev) => {
+      const cur = prev[activeCardOption];
+      if (cur && cur.qrX === qrX && cur.qrY === qrY && cur.qrWidth === qrWidth && cur.qrHeight === qrHeight) {
+        return prev;
+      }
+      const updated = { ...prev, [activeCardOption]: { qrX, qrY, qrWidth, qrHeight } };
+      try {
+        localStorage.setItem(QR_LAYOUTS_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to persist QR layouts:', e);
+      }
+      return updated;
+    });
+  }, [activeCardOption, qrX, qrY, qrWidth, qrHeight]);
   const [bgType, setBgType] = useState<BgType>(initialSaved.bgType);
   const [qrColor, setQrColor] = useState<string>(initialSaved.qrColor);
   const [invertOnBlack, setInvertOnBlack] = useState<boolean>(initialSaved.invertOnBlack);
@@ -292,7 +363,8 @@ export default function App() {
   const handleModeChange = (newMode: AppMode) => {
     setMode(newMode);
     if (newMode === 'bulk') {
-      setZoom(0.12); // Fit 46.2" x 80.4444" comfortably in viewport
+      setZoom(BULK_FIT_ZOOM); // Fit 46.2" x 80.4444" comfortably in viewport
+      setBulkPan({ x: 0, y: 0 });
     } else {
       setZoom(1.0);
     }
@@ -368,7 +440,7 @@ export default function App() {
 
   // Drag interaction state
   const dragInteractionRef = useRef<{
-    mode: 'move' | 'resize-se' | 'resize-e' | 'resize-s' | null;
+    mode: DragMode | null;
     startX: number;
     startY: number;
     initX: number;
@@ -421,6 +493,52 @@ export default function App() {
       } catch (err) {
         console.error('Failed to toggle auto trim:', err);
       }
+    }
+    if (bulkQrs.length > 0) await reprocessBulkQrsForTrim(nextVal);
+  };
+
+  // Rebuild loaded bulk QRs from their original files so the trim setting applies to every QR background
+  const reprocessBulkQrsForTrim = async (trim: boolean) => {
+    const items = bulkQrs;
+    setIsProcessingBulk(true);
+    try {
+      const updated: BulkQrItem[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        let trimmedUrl = item.rawUrl;
+        if (trim) {
+          try {
+            trimmedUrl = (await trimImageWhitespace(item.rawUrl, whiteThreshold)).trimmedUrl;
+          } catch {
+            trimmedUrl = item.rawUrl;
+          }
+        }
+        let transparentUrl = trimmedUrl;
+        let invertedUrl = trimmedUrl;
+        if (bgType === 'transparent') {
+          try {
+            transparentUrl = await createTransparentVersion(trimmedUrl, whiteThreshold);
+          } catch {
+            transparentUrl = trimmedUrl;
+          }
+        } else if (bgType === 'black' && invertOnBlack) {
+          try {
+            invertedUrl = await createInvertedVersion(trimmedUrl);
+          } catch {
+            invertedUrl = trimmedUrl;
+          }
+        }
+        updated.push({ ...item, trimmedUrl, transparentUrl, invertedUrl });
+        setBulkProgress({
+          message: `${trim ? 'Trimming' : 'Restoring margins on'} QR ${i + 1} of ${items.length}...`,
+          percent: Math.round(((i + 1) / items.length) * 100),
+        });
+      }
+      // Keep any QRs added while this ran
+      setBulkQrs((prev) => [...updated, ...prev.filter((p) => !items.some((it) => it.id === p.id))]);
+    } finally {
+      setIsProcessingBulk(false);
+      setBulkProgress(null);
     }
   };
 
@@ -956,8 +1074,17 @@ export default function App() {
     } catch (e) {
       console.error('Failed to persist active card option:', e);
     }
+    // Switch to that option's own card size and QR box (kept inside its card)
     const size = cardOptionSizes[option];
-    handleCardSizeChange(size.cardWidth, size.cardHeight);
+    const box = qrLayouts[option] ?? getCenteredQrBox(qrWidth, qrHeight, size);
+    const w = Math.min(box.qrWidth, size.cardWidth);
+    const h = Math.min(box.qrHeight, size.cardHeight);
+    setCardWidth(size.cardWidth);
+    setCardHeight(size.cardHeight);
+    setQrWidth(w);
+    setQrHeight(h);
+    setQrX(Number(Math.max(0, Math.min(size.cardWidth - w, box.qrX)).toFixed(4)));
+    setQrY(Number(Math.max(0, Math.min(size.cardHeight - h, box.qrY)).toFixed(4)));
   };
 
   // Center QR in template
@@ -993,7 +1120,7 @@ export default function App() {
   // Direct mouse drag and resize on the canvas
   const handleStartDrag = (
     e: React.MouseEvent,
-    mode: 'move' | 'resize-se' | 'resize-e' | 'resize-s'
+    mode: DragMode
   ) => {
     e.stopPropagation();
     e.preventDefault();
@@ -1023,17 +1150,31 @@ export default function App() {
         const nextY = Math.max(0, Math.min(cardHeight - current.initH, current.initY + dy));
         setQrX(Number(nextX.toFixed(4)));
         setQrY(Number(nextY.toFixed(4)));
-      } else if (current.mode === 'resize-se') {
-        const nextW = Math.max(0.3, Math.min(cardWidth - current.initX, current.initW + dx));
-        const nextH = Math.max(0.3, Math.min(cardHeight - current.initY, current.initH + dy));
+        return;
+      }
+
+      // Resize from any edge/corner: e/s grow the far side, w/n move the near side (opposite edge stays put)
+      const MIN = 0.3;
+      const dir = current.mode.slice('resize-'.length);
+      if (dir.includes('e')) {
+        const nextW = Math.max(MIN, Math.min(cardWidth - current.initX, current.initW + dx));
         setQrWidth(Number(nextW.toFixed(4)));
+      }
+      if (dir.includes('w')) {
+        const right = current.initX + current.initW;
+        const nextX = Math.max(0, Math.min(right - MIN, current.initX + dx));
+        setQrX(Number(nextX.toFixed(4)));
+        setQrWidth(Number((right - nextX).toFixed(4)));
+      }
+      if (dir.includes('s')) {
+        const nextH = Math.max(MIN, Math.min(cardHeight - current.initY, current.initH + dy));
         setQrHeight(Number(nextH.toFixed(4)));
-      } else if (current.mode === 'resize-e') {
-        const nextW = Math.max(0.3, Math.min(cardWidth - current.initX, current.initW + dx));
-        setQrWidth(Number(nextW.toFixed(4)));
-      } else if (current.mode === 'resize-s') {
-        const nextH = Math.max(0.3, Math.min(cardHeight - current.initY, current.initH + dy));
-        setQrHeight(Number(nextH.toFixed(4)));
+      }
+      if (dir.includes('n')) {
+        const bottom = current.initY + current.initH;
+        const nextY = Math.max(0, Math.min(bottom - MIN, current.initY + dy));
+        setQrY(Number(nextY.toFixed(4)));
+        setQrHeight(Number((bottom - nextY).toFixed(4)));
       }
     };
 
@@ -1131,7 +1272,8 @@ export default function App() {
           mode={mode}
           onModeChange={handleModeChange}
           zoom={zoom}
-          onZoomChange={setZoom}
+          onZoomChange={handleHeaderZoomChange}
+          onResetView={handleResetView}
           onDirectPrint={handleDirectPrint}
           onOpenExportModal={() => setIsExportModalOpen(true)}
           bulkCount={bulkQrs.length}
@@ -1194,6 +1336,8 @@ export default function App() {
             onOpenBulkPicker={() => bulkMultiFileInputRef.current?.click()}
             onOpenMultiPagePdfPicker={() => bulkPdfInputRef.current?.click()}
             onLoadSample132={handleLoadSample132Qrs}
+            pan={bulkPan}
+            onViewChange={handleBulkViewChange}
           />
         )}
       </div>
@@ -1296,6 +1440,8 @@ export default function App() {
           onOpenBulkExportModal={() => setIsBulkExportModalOpen(true)}
           onDirectPrint={handleDirectPrint}
           onOpenFolderSplitter={() => setIsFolderSplitterOpen(true)}
+          autoTrimMargins={autoTrimMargins}
+          onToggleAutoTrim={handleToggleAutoTrim}
         />
       )}
 

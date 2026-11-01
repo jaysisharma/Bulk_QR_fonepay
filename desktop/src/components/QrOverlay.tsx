@@ -1,4 +1,4 @@
-import type { BgType } from '../types';
+import type { BgType, DragMode } from '../types';
 
 interface QrOverlayProps {
   qrX: number;
@@ -13,7 +13,7 @@ interface QrOverlayProps {
   showSample?: boolean;
   onStartDrag: (
     e: React.MouseEvent,
-    mode: 'move' | 'resize-se' | 'resize-e' | 'resize-s'
+    mode: DragMode
   ) => void;
 }
 
@@ -120,26 +120,28 @@ export const QrOverlay: React.FC<QrOverlayProps> = ({
         {qrWidth}&quot; × {qrHeight}&quot; ({bgType})
       </div>
 
-      {/* Resize Handle (Bottom-Right) */}
-      <div
-        className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-indigo-500 hover:bg-indigo-400 border border-white rounded-full cursor-se-resize shadow-md z-30 print:hidden print-hide"
-        onMouseDown={(e) => onStartDrag(e, 'resize-se')}
-        title="Drag to resize"
-      />
-
-      {/* Resize Handle (Right edge - Width) */}
-      <div
-        className="absolute top-1/2 -right-1 -translate-y-1/2 w-2 h-4 bg-indigo-500/80 hover:bg-indigo-400 rounded-sm cursor-e-resize z-30 print:hidden print-hide"
-        onMouseDown={(e) => onStartDrag(e, 'resize-e')}
-        title="Drag width"
-      />
-
-      {/* Resize Handle (Bottom edge - Height) */}
-      <div
-        className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-2 bg-indigo-500/80 hover:bg-indigo-400 rounded-sm cursor-s-resize z-30 print:hidden print-hide"
-        onMouseDown={(e) => onStartDrag(e, 'resize-s')}
-        title="Drag height"
-      />
+      {/* Resize Handles: 4 corners (both directions) + 4 edges */}
+      {(
+        [
+          { mode: 'resize-nw', cls: '-top-1.5 -left-1.5 w-3.5 h-3.5 rounded-full border border-white cursor-nwse-resize', title: 'Drag to resize' },
+          { mode: 'resize-ne', cls: '-top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full border border-white cursor-nesw-resize', title: 'Drag to resize' },
+          { mode: 'resize-sw', cls: '-bottom-1.5 -left-1.5 w-3.5 h-3.5 rounded-full border border-white cursor-nesw-resize', title: 'Drag to resize' },
+          { mode: 'resize-se', cls: '-bottom-1.5 -right-1.5 w-3.5 h-3.5 rounded-full border border-white cursor-nwse-resize', title: 'Drag to resize' },
+          { mode: 'resize-w', cls: 'top-1/2 -left-1 -translate-y-1/2 w-2 h-4 rounded-sm cursor-ew-resize', title: 'Drag width (left edge)' },
+          { mode: 'resize-e', cls: 'top-1/2 -right-1 -translate-y-1/2 w-2 h-4 rounded-sm cursor-ew-resize', title: 'Drag width (right edge)' },
+          { mode: 'resize-n', cls: '-top-1 left-1/2 -translate-x-1/2 w-4 h-2 rounded-sm cursor-ns-resize', title: 'Drag height (top edge)' },
+          { mode: 'resize-s', cls: '-bottom-1 left-1/2 -translate-x-1/2 w-4 h-2 rounded-sm cursor-ns-resize', title: 'Drag height (bottom edge)' },
+        ] as { mode: DragMode; cls: string; title: string }[]
+      ).map((h) => (
+        <div
+          key={h.mode}
+          className={`absolute bg-indigo-500 hover:bg-indigo-400 shadow-md z-30 print:hidden print-hide ${
+            h.cls
+          }`}
+          onMouseDown={(e) => onStartDrag(e, h.mode)}
+          title={h.title}
+        />
+      ))}
     </div>
   );
 };
