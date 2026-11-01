@@ -18,18 +18,32 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
+// Pre-per-size installs stored a single template under this key
+const LEGACY_TEMPLATE_KEY = 'template';
+// Older saved templates each card option adopts on first load: the single legacy
+// template and the briefly-used per-size keys go to Option 1, the 4×6 one to Option 2
+const TEMPLATE_MIGRATION_SOURCES: Record<string, string[]> = {
+  option1: ['template:default', LEGACY_TEMPLATE_KEY],
+  option2: ['template:photo'],
+};
+
+function templateKeyForCardOption(cardOptionId: string): string {
+  return `template:${cardOptionId}`;
+}
+
 /**
- * Save template image data to IndexedDB
+ * Save template image data to IndexedDB for a specific card option
  */
-export async function saveTemplateToDb(template: TemplateInfo): Promise<void> {
+export async function saveTemplateToDb(template: TemplateInfo, cardOptionId: string): Promise<void> {
   try {
     const db = await openDb();
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
+    const key = templateKeyForCardOption(cardOptionId);
     if (!template.url) {
-      store.delete('template');
+      store.delete(key);
     } else {
-      store.put(template, 'template');
+      store.put(template, key);
     }
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
@@ -41,17 +55,37 @@ export async function saveTemplateToDb(template: TemplateInfo): Promise<void> {
 }
 
 /**
- * Load template image data from IndexedDB
+ * Load template image data from IndexedDB for a specific card option.
+ * On first load an option adopts (and removes) its older saved template, if any.
  */
-export async function loadTemplateFromDb(): Promise<TemplateInfo | null> {
+export async function loadTemplateFromDb(cardOptionId: string): Promise<TemplateInfo | null> {
   try {
     const db = await openDb();
-    const tx = db.transaction(STORE_NAME, 'readonly');
+    const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
-    const request = store.get('template');
+    const key = templateKeyForCardOption(cardOptionId);
+    const sources = [key, ...(TEMPLATE_MIGRATION_SOURCES[cardOptionId] ?? [])];
     return new Promise((resolve) => {
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => resolve(null);
+      const tryNext = (index: number) => {
+        if (index >= sources.length) {
+          resolve(null);
+          return;
+        }
+        const request = store.get(sources[index]);
+        request.onsuccess = () => {
+          if (!request.result) {
+            tryNext(index + 1);
+            return;
+          }
+          if (index > 0) {
+            store.put(request.result, key);
+            store.delete(sources[index]);
+          }
+          resolve(request.result);
+        };
+        request.onerror = () => resolve(null);
+      };
+      tryNext(0);
     });
   } catch (e) {
     console.error('Failed to load template from IndexedDB:', e);

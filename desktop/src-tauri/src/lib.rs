@@ -24,6 +24,11 @@ fn open_folder_in_os(folder_path: String) -> Result<(), String> {
     splitter::open_folder_impl(&folder_path)
 }
 
+#[tauri::command]
+fn save_binary_file(destination_folder: String, file_name: String, base64_data: String) -> Result<String, String> {
+    splitter::save_binary_file_impl(&destination_folder, &file_name, &base64_data)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -43,7 +48,8 @@ pub fn run() {
             generate_pdf,
             scan_folder,
             split_folder,
-            open_folder_in_os
+            open_folder_in_os,
+            save_binary_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

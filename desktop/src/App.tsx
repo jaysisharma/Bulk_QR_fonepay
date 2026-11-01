@@ -2,11 +2,17 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   TARGET_WIDTH_INCH,
   TARGET_HEIGHT_INCH,
+  DEFAULT_CUT_LINE_THICKNESS_PT,
+  CARD_OPTIONS,
+  SHEET_COLS,
+  SHEET_ROWS,
   type BgType,
   type PageBgType,
   type AppMode,
   type BulkQrItem,
   type BulkSheetConfig,
+  type CardOptionId,
+  type CardOptionSize,
   type UploadedQrInfo,
   type TemplateInfo,
   type SavedLayoutState,
@@ -39,6 +45,9 @@ import {
 
 const STORAGE_KEY = 'qr_template_studio_saved_state';
 const PRESETS_KEY = 'qr_template_studio_saved_presets';
+const SHEET_GRIDS_KEY = 'qr_template_studio_sheet_grids';
+const ACTIVE_CARD_OPTION_KEY = 'qr_template_studio_active_card_option';
+const CARD_OPTION_SIZES_KEY = 'qr_template_studio_card_option_sizes';
 
 function getInitialState(): SavedLayoutState {
   try {
@@ -97,6 +106,57 @@ function getInitialPresets(): PresetItem[] {
   return [];
 }
 
+// Each card option keeps its own bulk sheet grid (cols × rows and sheet dimensions)
+type SheetGrid = Required<Pick<BulkSheetConfig, 'sheetCols' | 'sheetRows' | 'sheetWidthInch' | 'sheetHeightInch'>>;
+
+function getInitialActiveCardOption(): CardOptionId {
+  const saved = localStorage.getItem(ACTIVE_CARD_OPTION_KEY);
+  return CARD_OPTIONS.some((o) => o.id === saved) ? (saved as CardOptionId) : 'option1';
+}
+
+function getInitialCardOptionSizes(): Record<CardOptionId, CardOptionSize> {
+  const sizes = Object.fromEntries(CARD_OPTIONS.map((o) => [o.id, o.defaultSize])) as Record<
+    CardOptionId,
+    CardOptionSize
+  >;
+  try {
+    const raw = localStorage.getItem(CARD_OPTION_SIZES_KEY);
+    if (raw) return { ...sizes, ...JSON.parse(raw) };
+    // First run: Option 1 adopts the card size the user already had
+    const saved = getInitialState();
+    sizes.option1 = {
+      cardWidth: saved.cardWidth ?? TARGET_WIDTH_INCH,
+      cardHeight: saved.cardHeight ?? TARGET_HEIGHT_INCH,
+    };
+  } catch (e) {
+    console.error('Failed to load card option sizes from localStorage:', e);
+  }
+  return sizes;
+}
+
+function getDefaultSheetGrid(cardWidth: number, cardHeight: number): SheetGrid {
+  return {
+    sheetCols: SHEET_COLS,
+    sheetRows: SHEET_ROWS,
+    sheetWidthInch: Number((SHEET_COLS * cardWidth).toFixed(4)),
+    sheetHeightInch: Number((SHEET_ROWS * cardHeight).toFixed(4)),
+  };
+}
+
+function getInitialSheetGrids(): Record<string, SheetGrid> {
+  try {
+    const raw = localStorage.getItem(SHEET_GRIDS_KEY);
+    if (raw) {
+      const grids = JSON.parse(raw);
+      // Grids were briefly keyed by card size preset id before card options existed
+      return { option1: grids.default, option2: grids.photo, ...grids };
+    }
+  } catch (e) {
+    console.error('Failed to load sheet grids from localStorage:', e);
+  }
+  return {};
+}
+
 export default function App() {
   // Background Template State
   const [template, setTemplate] = useState<TemplateInfo>({
@@ -111,9 +171,13 @@ export default function App() {
   // Load persistent initial layout
   const [initialSaved] = useState<SavedLayoutState>(getInitialState);
 
-  // Card physical dimensions (in inches) - customizable
-  const [cardWidth, setCardWidth] = useState<number>(initialSaved.cardWidth ?? TARGET_WIDTH_INCH);
-  const [cardHeight, setCardHeight] = useState<number>(initialSaved.cardHeight ?? TARGET_HEIGHT_INCH);
+  // Card options (Option 1 / Option 2): each has its own card size, template, and sheet grid
+  const [activeCardOption, setActiveCardOption] = useState<CardOptionId>(getInitialActiveCardOption);
+  const [cardOptionSizes, setCardOptionSizes] = useState<Record<CardOptionId, CardOptionSize>>(getInitialCardOptionSizes);
+
+  // Card physical dimensions (in inches) of the active option - customizable
+  const [cardWidth, setCardWidth] = useState<number>(cardOptionSizes[activeCardOption].cardWidth);
+  const [cardHeight, setCardHeight] = useState<number>(cardOptionSizes[activeCardOption].cardHeight);
 
   // QR Overlay state (in physical inches) - preserved across new QR uploads
   const [qrWidth, setQrWidth] = useState<number>(initialSaved.qrWidth);
@@ -147,14 +211,23 @@ export default function App() {
   const [bulkQrs, setBulkQrs] = useState<BulkQrItem[]>([]);
   const [bulkConfig, setBulkConfig] = useState<BulkSheetConfig>({
     showCutGuides: true,
+    cutLineThicknessPt: DEFAULT_CUT_LINE_THICKNESS_PT,
     showSlotNumbers: false,
     fillStrategy: 'blank',
     activeSheetIndex: 0,
-    sheetCols: 11,
-    sheetRows: 12,
-    sheetWidthInch: 46.2385,
-    sheetHeightInch: 80.442,
   });
+  const [sheetGrids, setSheetGrids] = useState<Record<string, SheetGrid>>(getInitialSheetGrids);
+  const activeSheetGrid = sheetGrids[activeCardOption] ?? getDefaultSheetGrid(cardWidth, cardHeight);
+  const activeSlotsPerSheet = activeSheetGrid.sheetCols * activeSheetGrid.sheetRows;
+  const activeBulkConfig: BulkSheetConfig = {
+    ...bulkConfig,
+    ...activeSheetGrid,
+    // Grid may shrink the sheet count when switching card option
+    activeSheetIndex: Math.min(
+      bulkConfig.activeSheetIndex,
+      Math.max(0, Math.ceil(bulkQrs.length / activeSlotsPerSheet) - 1)
+    ),
+  };
   const [isBulkExportModalOpen, setIsBulkExportModalOpen] = useState<boolean>(false);
   const [isProcessingBulk, setIsProcessingBulk] = useState<boolean>(false);
   const [bulkProgress, setBulkProgress] = useState<{ message: string; percent: number } | null>(null);
@@ -179,16 +252,37 @@ export default function App() {
     }
   };
 
-  // Load persisted template and QR images from IndexedDB on startup
+  // Each card option has its own template: load it whenever the option changes
   useEffect(() => {
-    loadTemplateFromDb()
+    let cancelled = false;
+    loadTemplateFromDb(activeCardOption)
       .then((savedTemplate) => {
-        if (savedTemplate && savedTemplate.url) {
-          setTemplate(savedTemplate);
-        }
+        if (cancelled) return;
+        setTemplate(savedTemplate && savedTemplate.url ? savedTemplate : { url: null, name: null });
       })
       .catch((err) => console.error('Failed to restore template from DB:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCardOption]);
 
+  // Remember the active option's card size (edits, presets and resets all land here)
+  useEffect(() => {
+    setCardOptionSizes((prev) => {
+      const current = prev[activeCardOption];
+      if (current.cardWidth === cardWidth && current.cardHeight === cardHeight) return prev;
+      const updated = { ...prev, [activeCardOption]: { cardWidth, cardHeight } };
+      try {
+        localStorage.setItem(CARD_OPTION_SIZES_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to persist card option sizes:', e);
+      }
+      return updated;
+    });
+  }, [activeCardOption, cardWidth, cardHeight]);
+
+  // Load persisted QR image from IndexedDB on startup
+  useEffect(() => {
     loadCustomQrFromDb()
       .then((savedQr) => {
         if (savedQr) {
@@ -375,12 +469,13 @@ export default function App() {
       try {
         const text = await file.text();
         const parsed: ProjectBundle = JSON.parse(text);
+        // Projects import into the currently selected card option
         if (parsed.layout) {
           handleApplyPreset(parsed.layout as any);
         }
         if (parsed.template) {
           setTemplate(parsed.template);
-          saveTemplateToDb(parsed.template);
+          saveTemplateToDb(parsed.template, activeCardOption);
         }
         if (parsed.customQr !== undefined) {
           setCustomQr(parsed.customQr);
@@ -418,7 +513,7 @@ export default function App() {
           size: sizeFormatted,
         };
         setTemplate(newTemplate);
-        saveTemplateToDb(newTemplate);
+        saveTemplateToDb(newTemplate, activeCardOption);
       } catch (err) {
         console.error('Failed to parse PDF template:', err);
         alert('Could not render PDF template.');
@@ -434,13 +529,13 @@ export default function App() {
           size: sizeFormatted,
         };
         setTemplate(newTemplate);
-        saveTemplateToDb(newTemplate);
+        saveTemplateToDb(newTemplate, activeCardOption);
       } catch (err) {
         console.error('Failed to read image template:', err);
         alert('Could not read image template.');
       }
     }
-  }, []);
+  }, [activeCardOption]);
 
   // Process Uploaded QR File (PDF or Image)
   // Preserves existing qrX, qrY, qrWidth, and qrHeight so new QRs load in the exact same position
@@ -510,7 +605,7 @@ export default function App() {
   const handleClearTemplate = () => {
     const emptyTemplate = { url: null, name: null };
     setTemplate(emptyTemplate);
-    saveTemplateToDb(emptyTemplate);
+    saveTemplateToDb(emptyTemplate, activeCardOption);
     if (templateFileInputRef.current) templateFileInputRef.current.value = '';
   };
 
@@ -775,7 +870,23 @@ export default function App() {
   };
 
   const handleUpdateBulkConfig = (partial: Partial<BulkSheetConfig>) => {
-    setBulkConfig((prev) => ({ ...prev, ...partial }));
+    const { sheetCols, sheetRows, sheetWidthInch, sheetHeightInch, ...rest } = partial;
+    const gridPartial = Object.fromEntries(
+      Object.entries({ sheetCols, sheetRows, sheetWidthInch, sheetHeightInch }).filter(([, v]) => v !== undefined)
+    ) as Partial<SheetGrid>;
+    if (Object.keys(gridPartial).length > 0) {
+      // Save grid edits against the currently selected card option only
+      setSheetGrids((prev) => {
+        const updated = { ...prev, [activeCardOption]: { ...activeSheetGrid, ...gridPartial } };
+        try {
+          localStorage.setItem(SHEET_GRIDS_KEY, JSON.stringify(updated));
+        } catch (e) {
+          console.error('Failed to persist sheet grids:', e);
+        }
+        return updated;
+      });
+    }
+    setBulkConfig((prev) => ({ ...prev, ...rest }));
   };
 
   const handleCardSizeChange = (newWidth: number, newHeight: number) => {
@@ -783,6 +894,24 @@ export default function App() {
     const clampedH = Math.max(1, Number(newHeight.toFixed(4)));
     setCardWidth(clampedW);
     setCardHeight(clampedH);
+    if (qrX + qrWidth > clampedW) {
+      setQrX(Math.max(0, Number((clampedW - qrWidth).toFixed(4))));
+    }
+    if (qrY + qrHeight > clampedH) {
+      setQrY(Math.max(0, Number((clampedH - qrHeight).toFixed(4))));
+    }
+  };
+
+  const handleCardOptionChange = (option: CardOptionId) => {
+    if (option === activeCardOption) return;
+    setActiveCardOption(option);
+    try {
+      localStorage.setItem(ACTIVE_CARD_OPTION_KEY, option);
+    } catch (e) {
+      console.error('Failed to persist active card option:', e);
+    }
+    const size = cardOptionSizes[option];
+    handleCardSizeChange(size.cardWidth, size.cardHeight);
   };
 
   // Center QR in template
@@ -799,14 +928,20 @@ export default function App() {
 
   // Width change handler (strictly independent - never modifies height)
   const handleWidthChange = (newW: number) => {
-    const clampedW = Math.max(0.3, Number(newW.toFixed(4)));
+    const clampedW = Math.max(0.3, Math.min(cardWidth, Number(newW.toFixed(4))));
     setQrWidth(clampedW);
+    if (qrX + clampedW > cardWidth) {
+      setQrX(Number((cardWidth - clampedW).toFixed(4)));
+    }
   };
 
   // Height change handler (strictly independent - never modifies width)
   const handleHeightChange = (newH: number) => {
-    const clampedH = Math.max(0.3, Number(newH.toFixed(4)));
+    const clampedH = Math.max(0.3, Math.min(cardHeight, Number(newH.toFixed(4))));
     setQrHeight(clampedH);
+    if (qrY + clampedH > cardHeight) {
+      setQrY(Number((cardHeight - clampedH).toFixed(4)));
+    }
   };
 
   // Direct mouse drag and resize on the canvas
@@ -838,20 +973,20 @@ export default function App() {
       const dy = (moveEvt.clientY - current.startY) / pxPerInch;
 
       if (current.mode === 'move') {
-        const nextX = Math.max(-2, Math.min(cardWidth + 2, current.initX + dx));
-        const nextY = Math.max(-2, Math.min(cardHeight + 2, current.initY + dy));
+        const nextX = Math.max(0, Math.min(cardWidth - current.initW, current.initX + dx));
+        const nextY = Math.max(0, Math.min(cardHeight - current.initH, current.initY + dy));
         setQrX(Number(nextX.toFixed(4)));
         setQrY(Number(nextY.toFixed(4)));
       } else if (current.mode === 'resize-se') {
-        const nextW = Math.max(0.3, Math.min(cardWidth * 2, current.initW + dx));
-        const nextH = Math.max(0.3, Math.min(cardHeight * 2, current.initH + dy));
+        const nextW = Math.max(0.3, Math.min(cardWidth - current.initX, current.initW + dx));
+        const nextH = Math.max(0.3, Math.min(cardHeight - current.initY, current.initH + dy));
         setQrWidth(Number(nextW.toFixed(4)));
         setQrHeight(Number(nextH.toFixed(4)));
       } else if (current.mode === 'resize-e') {
-        const nextW = Math.max(0.3, Math.min(cardWidth * 2, current.initW + dx));
+        const nextW = Math.max(0.3, Math.min(cardWidth - current.initX, current.initW + dx));
         setQrWidth(Number(nextW.toFixed(4)));
       } else if (current.mode === 'resize-s') {
-        const nextH = Math.max(0.3, Math.min(cardHeight * 2, current.initH + dy));
+        const nextH = Math.max(0.3, Math.min(cardHeight - current.initY, current.initH + dy));
         setQrHeight(Number(nextH.toFixed(4)));
       }
     };
@@ -865,43 +1000,6 @@ export default function App() {
     window.addEventListener('mousemove', handlePointerMove);
     window.addEventListener('mouseup', handlePointerUp);
   };
-
-  // Keyboard arrow keys for precision nudging (ArrowLeft, ArrowRight, ArrowUp, ArrowDown)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept if user is typing in an input, textarea, or contentEditable element
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT' ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
-
-      // Shift key gives a larger 0.1" jump, standard gives 0.02" precision nudge
-      const step = e.shiftKey ? 0.1 : 0.02;
-
-      if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        setQrX((prev) => Number((prev + step).toFixed(4)));
-      } else if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        setQrX((prev) => Number((prev - step).toFixed(4)));
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setQrY((prev) => Number((prev - step).toFixed(4)));
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setQrY((prev) => Number((prev + step).toFixed(4)));
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   // Determine active QR image URL
   const activeQrImageUrl = customQr
@@ -1044,7 +1142,7 @@ export default function App() {
             template={template}
             bulkQrs={bulkQrs}
             customQr={customQr}
-            config={bulkConfig}
+            config={activeBulkConfig}
             onOpenBulkPicker={() => bulkMultiFileInputRef.current?.click()}
             onOpenMultiPagePdfPicker={() => bulkPdfInputRef.current?.click()}
             onLoadSample132={handleLoadSample132Qrs}
@@ -1077,6 +1175,9 @@ export default function App() {
           cardWidth={cardWidth}
           cardHeight={cardHeight}
           onCardSizeChange={handleCardSizeChange}
+          activeCardOption={activeCardOption}
+          cardOptionSizes={cardOptionSizes}
+          onCardOptionChange={handleCardOptionChange}
           autoTrimMargins={autoTrimMargins}
           onToggleAutoTrim={handleToggleAutoTrim}
           innerPaddingPx={innerPaddingPx}
@@ -1111,6 +1212,9 @@ export default function App() {
           customQr={customQr}
           cardWidth={cardWidth}
           cardHeight={cardHeight}
+          activeCardOption={activeCardOption}
+          cardOptionSizes={cardOptionSizes}
+          onCardOptionChange={handleCardOptionChange}
           layout={{
             qrX,
             qrY,
@@ -1129,7 +1233,7 @@ export default function App() {
             showTemplateImage,
             templateLayer,
           }}
-          config={bulkConfig}
+          config={activeBulkConfig}
           isProcessing={isProcessingBulk}
           processingProgress={bulkProgress}
           onOpenMultiFilePicker={() => bulkMultiFileInputRef.current?.click()}
@@ -1193,7 +1297,7 @@ export default function App() {
         template={template}
         bulkQrs={bulkQrs}
         customQr={customQr}
-        config={bulkConfig}
+        config={activeBulkConfig}
       />
 
       {/* Split Large Folder (132 per Folder) Dialog */}

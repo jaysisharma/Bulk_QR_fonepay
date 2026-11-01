@@ -4,6 +4,7 @@ import {
   SHEET_ROWS,
   SHEET_CELL_WIDTH_INCH,
   SHEET_CELL_HEIGHT_INCH,
+  DEFAULT_CUT_LINE_THICKNESS_PT,
   type BulkQrItem,
   type SavedLayoutState,
   type TemplateInfo,
@@ -16,6 +17,8 @@ export interface BulkExportOptions {
   template: TemplateInfo;
   bulkQrs: BulkQrItem[];
   showCutGuides: boolean;
+  /** Cut line stroke width in points (1pt = 1/72 inch) */
+  cutLineThicknessPt?: number;
   showSlotNumbers: boolean;
   fillStrategy: 'blank' | 'repeat';
   activeSheetIndex?: number;
@@ -86,12 +89,13 @@ export function getQrItemForSlot(
 export async function exportBulkSheetAsPdf(
   options: BulkExportOptions,
   filename = 'bulk-132-qr-sheet.pdf'
-): Promise<void> {
+): Promise<Blob> {
   const {
     layout,
     template,
     bulkQrs,
     showCutGuides,
+    cutLineThicknessPt = DEFAULT_CUT_LINE_THICKNESS_PT,
     showSlotNumbers,
     fillStrategy,
     activeSheetIndex = 0,
@@ -220,7 +224,7 @@ export async function exportBulkSheetAsPdf(
     if (showCutGuides) {
       // High-visibility, crisp dashed cutting lines for plotter / guillotine trimming
       pdf.setDrawColor(60, 64, 75); // Dark slate for sharp contrast on light and dark backgrounds
-      pdf.setLineWidth(0.015); // ~1.1 pt, clearly visible without bleeding
+      pdf.setLineWidth(cutLineThicknessPt / 72); // pt -> inch (PDF units are inches)
       pdf.setLineDashPattern([0.1, 0.05], 0);
 
       // Vertical column slicing lines
@@ -244,7 +248,11 @@ export async function exportBulkSheetAsPdf(
   }
 
   if (onProgress) onProgress('Compiling PDF file...', 98);
-  pdf.save(filename);
+  const blob = pdf.output('blob');
+  if (filename) {
+    pdf.save(filename);
+  }
+  return blob;
 }
 
 /**
@@ -252,14 +260,15 @@ export async function exportBulkSheetAsPdf(
  */
 export async function exportBulkSheetAsPng(
   options: BulkExportOptions,
-  filename = 'bulk-132-qr-sheet.png',
+  filename?: string,
   dpi = 100
-): Promise<void> {
+): Promise<Blob> {
   const {
     layout,
     template,
     bulkQrs,
     showCutGuides,
+    cutLineThicknessPt = DEFAULT_CUT_LINE_THICKNESS_PT,
     showSlotNumbers,
     fillStrategy,
     activeSheetIndex = 0,
@@ -352,7 +361,7 @@ export async function exportBulkSheetAsPng(
   // Draw Cut Guides
   if (showCutGuides) {
     ctx.strokeStyle = 'rgba(51, 65, 85, 0.85)';
-    ctx.lineWidth = Math.max(3, Math.round(dpi / 40));
+    ctx.lineWidth = Math.max(1, (cutLineThicknessPt / 72) * dpi);
     ctx.setLineDash([Math.round(dpi / 12), Math.round(dpi / 24)]);
 
     for (let c = 1; c < cols; c++) {
@@ -379,8 +388,10 @@ export async function exportBulkSheetAsPng(
         reject(new Error('Failed to create PNG blob.'));
         return;
       }
-      triggerBlobDownload(blob, filename);
-      resolve();
+      if (filename) {
+        triggerBlobDownload(blob, filename);
+      }
+      resolve(blob);
     }, 'image/png');
   });
 }

@@ -158,7 +158,6 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
             qrColor={qrColor}
             activeQrImageUrl={activeQrImageUrl}
             innerPaddingPx={innerPaddingPx}
-            templateLayer={templateLayer}
             onStartDrag={onStartDrag}
           />
         </div>

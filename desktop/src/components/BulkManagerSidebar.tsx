@@ -20,11 +20,15 @@ import {
   SHEET_CELL_WIDTH_INCH,
   SHEET_CELL_HEIGHT_INCH,
   SHEET_SIZE_PRESETS,
+  DEFAULT_CUT_LINE_THICKNESS_PT,
   type BulkQrItem,
   type BulkSheetConfig,
+  type CardOptionId,
+  type CardOptionSize,
   type SavedLayoutState,
   type UploadedQrInfo,
 } from '../types';
+import { CardOptionToggle } from './CardOptionToggle';
 
 interface BulkManagerSidebarProps {
   bulkQrs: BulkQrItem[];
@@ -33,6 +37,9 @@ interface BulkManagerSidebarProps {
   config: BulkSheetConfig;
   cardWidth?: number;
   cardHeight?: number;
+  activeCardOption: CardOptionId;
+  cardOptionSizes: Record<CardOptionId, CardOptionSize>;
+  onCardOptionChange: (option: CardOptionId) => void;
   isProcessing: boolean;
   processingProgress: { message: string; percent: number } | null;
   onOpenMultiFilePicker: () => void;
@@ -54,6 +61,9 @@ export const BulkManagerSidebar: React.FC<BulkManagerSidebarProps> = ({
   config,
   cardWidth,
   cardHeight,
+  activeCardOption,
+  cardOptionSizes,
+  onCardOptionChange,
   isProcessing,
   processingProgress,
   onOpenMultiFilePicker,
@@ -135,6 +145,13 @@ export const BulkManagerSidebar: React.FC<BulkManagerSidebarProps> = ({
             </div>
           </div>
         )}
+
+        {/* Card Option: each option has its own card size, template, and sheet grid */}
+        <CardOptionToggle
+          activeOption={activeCardOption}
+          optionSizes={cardOptionSizes}
+          onChange={onCardOptionChange}
+        />
 
         {/* Section 0: Sheet & Grid Dimensions */}
         <div className="space-y-2.5 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/90">
@@ -395,6 +412,27 @@ export const BulkManagerSidebar: React.FC<BulkManagerSidebarProps> = ({
                 />
               </button>
             </div>
+
+            {/* Cut Line Thickness */}
+            {config.showCutGuides && (
+              <div className="p-2 rounded-lg bg-slate-900 border border-slate-800 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-200">Cut Line Thickness</span>
+                  <span className="font-mono text-indigo-400">
+                    {(config.cutLineThicknessPt ?? DEFAULT_CUT_LINE_THICKNESS_PT).toFixed(2)}pt
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0.25}
+                  max={6}
+                  step={0.25}
+                  value={config.cutLineThicknessPt ?? DEFAULT_CUT_LINE_THICKNESS_PT}
+                  onChange={(e) => onUpdateConfig({ cutLineThicknessPt: parseFloat(e.target.value) })}
+                  className="w-full accent-indigo-500 cursor-pointer h-1.5 bg-slate-800 rounded-lg appearance-none"
+                />
+              </div>
+            )}
 
             {/* Slot Numbers */}
             <div className="flex items-center justify-between p-2 rounded-lg bg-slate-900 border border-slate-800">

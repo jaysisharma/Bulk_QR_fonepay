@@ -4,6 +4,7 @@ import {
   SHEET_ROWS,
   SHEET_CELL_WIDTH_INCH,
   SHEET_CELL_HEIGHT_INCH,
+  DEFAULT_CUT_LINE_THICKNESS_PT,
   type BulkQrItem,
   type SavedLayoutState,
   type TemplateInfo,
@@ -50,6 +51,7 @@ export const BulkSheetStage: React.FC<BulkSheetStageProps> = ({
 
   const cols = config.sheetCols || SHEET_COLS;
   const rows = config.sheetRows || SHEET_ROWS;
+  const cutLinePt = config.cutLineThicknessPt ?? DEFAULT_CUT_LINE_THICKNESS_PT;
   const totalSlotsPerSheet = cols * rows;
 
   const cardW = layout.cardWidth || SHEET_CELL_WIDTH_INCH;
@@ -150,9 +152,10 @@ export const BulkSheetStage: React.FC<BulkSheetStageProps> = ({
           {/* Dynamic Columns × Rows Grid */}
           <div
             className={`w-full h-full grid ${
-              config.showCutGuides ? 'border-t-2 border-l-2 border-dashed border-slate-500/85' : ''
+              config.showCutGuides ? 'border-dashed border-slate-500/85' : ''
             }`}
             style={{
+              borderWidth: config.showCutGuides ? `${cutLinePt}pt 0 0 ${cutLinePt}pt` : undefined,
               gridTemplateColumns: `repeat(${cols}, ${cellW}in)`,
               gridTemplateRows: `repeat(${rows}, ${cellH}in)`,
             }}
@@ -228,7 +231,8 @@ export const BulkSheetStage: React.FC<BulkSheetStageProps> = ({
                   {/* High-visibility Cut Guide Overlay on top of card content */}
                   {config.showCutGuides && (
                     <div
-                      className="absolute inset-0 pointer-events-none z-15 border-r-2 border-b-2 border-dashed border-slate-500/85 print:border-black"
+                      className="absolute inset-0 pointer-events-none z-15 border-dashed border-slate-500/85 print:border-black"
+                      style={{ borderWidth: `0 ${cutLinePt}pt ${cutLinePt}pt 0` }}
                     />
                   )}
 

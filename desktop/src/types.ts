@@ -40,6 +40,21 @@ export const SHEET_SIZE_PRESETS: PaperPreset[] = [
   { id: 'arch_e', name: 'Arch E (36.0" × 48.0")', widthInch: 36.0, heightInch: 48.0 },
 ];
 
+export const DEFAULT_CUT_LINE_THICKNESS_PT = 1;
+
+// Saved card setups: each option has its own card size, template, and bulk sheet grid
+export type CardOptionId = 'option1' | 'option2';
+
+export interface CardOptionSize {
+  cardWidth: number;
+  cardHeight: number;
+}
+
+export const CARD_OPTIONS: { id: CardOptionId; label: string; defaultSize: CardOptionSize }[] = [
+  { id: 'option1', label: 'Option 1', defaultSize: { cardWidth: DEFAULT_CARD_WIDTH_INCH, cardHeight: DEFAULT_CARD_HEIGHT_INCH } },
+  { id: 'option2', label: 'Option 2', defaultSize: { cardWidth: 4, cardHeight: 6 } },
+];
+
 export type AppMode = 'single' | 'bulk';
 export type BgType = 'white' | 'black' | 'transparent';
 export type PageBgType = 'white' | 'dark' | 'transparent' | 'custom';
@@ -55,6 +70,7 @@ export interface BulkQrItem {
 
 export interface BulkSheetConfig {
   showCutGuides: boolean;
+  cutLineThicknessPt?: number;
   showSlotNumbers: boolean;
   fillStrategy: 'blank' | 'repeat';
   activeSheetIndex: number;

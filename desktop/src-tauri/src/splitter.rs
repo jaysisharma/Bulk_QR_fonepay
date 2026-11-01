@@ -313,3 +313,18 @@ pub fn open_folder_impl(folder_path: &str) -> Result<(), String> {
 
     Ok(())
 }
+
+pub fn save_binary_file_impl(destination_folder: &str, file_name: &str, base64_data: &str) -> Result<String, String> {
+    let folder = Path::new(destination_folder);
+    if !folder.exists() {
+        fs::create_dir_all(folder).map_err(|e| format!("Failed to create destination folder: {}", e))?;
+    }
+
+    let file_path = folder.join(file_name);
+    let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, base64_data)
+        .map_err(|e| format!("Invalid base64 payload: {}", e))?;
+
+    fs::write(&file_path, bytes).map_err(|e| format!("Failed to write file to disk: {}", e))?;
+
+    Ok(file_path.to_string_lossy().to_string())
+}
