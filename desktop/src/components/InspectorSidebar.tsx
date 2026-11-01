@@ -49,6 +49,8 @@ interface InspectorSidebarProps {
   isProcessingQr: boolean;
   onOpenQrPicker: () => void;
   onResetToSampleQr: () => void;
+  showSampleQr: boolean;
+  onToggleShowSampleQr: () => void;
   presets: PresetItem[];
   onSavePreset: (name: string) => void;
   onApplyPreset: (preset: PresetItem) => void;
@@ -98,6 +100,8 @@ export const InspectorSidebar: React.FC<InspectorSidebarProps> = ({
   isProcessingQr,
   onOpenQrPicker,
   onResetToSampleQr,
+  showSampleQr,
+  onToggleShowSampleQr,
   presets,
   onSavePreset,
   onApplyPreset,
@@ -482,14 +486,18 @@ export const InspectorSidebar: React.FC<InspectorSidebarProps> = ({
               <FileImage className="w-3 h-3 text-indigo-400" />
               <span>QR File</span>
             </span>
-            {customQr && (
+            {!customQr && (
               <button
-                onClick={onResetToSampleQr}
-                className="text-[10px] text-slate-400 hover:text-rose-400 flex items-center gap-1 transition cursor-pointer"
-                title="Revert to sample QR"
+                type="button"
+                onClick={onToggleShowSampleQr}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-mono border transition cursor-pointer ${
+                  showSampleQr
+                    ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300'
+                    : 'bg-slate-900 border-slate-800 text-slate-500'
+                }`}
+                title={showSampleQr ? 'Hide the sample QR (card prints with no QR)' : 'Show the sample QR placeholder'}
               >
-                <RefreshCw className="w-2.5 h-2.5" />
-                <span>Sample</span>
+                {showSampleQr ? 'Sample: On' : 'Sample: Off'}
               </button>
             )}
           </div>
@@ -516,6 +524,14 @@ export const InspectorSidebar: React.FC<InspectorSidebarProps> = ({
                 className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-medium transition cursor-pointer shrink-0"
               >
                 Change
+              </button>
+              <button
+                type="button"
+                onClick={onResetToSampleQr}
+                className="ml-1 p-1 rounded bg-slate-900 hover:bg-rose-500/15 text-slate-400 hover:text-rose-400 border border-slate-800 transition cursor-pointer shrink-0"
+                title="Delete this QR file"
+              >
+                <Trash2 className="w-3 h-3" />
               </button>
             </div>
           ) : (

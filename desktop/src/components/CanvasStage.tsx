@@ -22,6 +22,7 @@ interface CanvasStageProps {
   qrColor: string;
   activeQrImageUrl: string | null;
   innerPaddingPx?: number;
+  showSampleQr?: boolean;
   cardWidth?: number;
   cardHeight?: number;
   onStartDrag: (
@@ -50,6 +51,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   qrColor,
   activeQrImageUrl,
   innerPaddingPx = 0,
+  showSampleQr = true,
   onStartDrag,
 }) => {
   const isWhitePage = pageBg === 'white';
@@ -158,6 +160,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
             qrColor={qrColor}
             activeQrImageUrl={activeQrImageUrl}
             innerPaddingPx={innerPaddingPx}
+            showSample={showSampleQr}
             onStartDrag={onStartDrag}
           />
         </div>

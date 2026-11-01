@@ -52,6 +52,19 @@ export function getActiveQrUrlForBulkItem(
 }
 
 /**
+ * Whether a slot gets a card (template) at all. Slots left empty by "Leave Blank"
+ * stay blank; an empty sheet (no QRs loaded) still previews the template everywhere.
+ */
+export function slotHasCard(
+  qrItem: BulkQrItem | null,
+  bulkQrs: BulkQrItem[],
+  customQr?: UploadedQrInfo | null
+): boolean {
+  if (qrItem) return true;
+  return bulkQrs.length === 0 && !customQr;
+}
+
+/**
  * Resolves which BulkQrItem goes into a given slot index
  */
 export function getQrItemForSlot(
@@ -158,10 +171,12 @@ export async function exportBulkSheetAsPdf(
         const cellY = row * cellH;
 
         const activeQrUrl = qrItem ? getActiveQrUrlForBulkItem(qrItem, layout) : null;
-        const hasCardToRender = activeQrUrl || (template.url && layout.showTemplateImage !== false);
+        const hasCardToRender =
+        activeQrUrl ||
+        (template.url && layout.showTemplateImage !== false && slotHasCard(qrItem, bulkQrs, customQr));
 
         if (hasCardToRender) {
-          const cacheKey = qrItem ? qrItem.id : '__empty_template_card__';
+          const cacheKey = activeQrUrl && qrItem ? qrItem.id : '__empty_template_card__';
           let cardDataUrl = renderedCardCache.get(cacheKey);
 
           if (!cardDataUrl) {
@@ -169,16 +184,17 @@ export async function exportBulkSheetAsPdf(
               dpi: exportDpi, // Ultra-sharp print resolution per card (450 or 600 DPI)
               templateUrl: template.url,
               activeQrImageUrl: activeQrUrl,
-              qrX: layout.qrX,
-              qrY: layout.qrY,
-              qrWidth: layout.qrWidth,
-              qrHeight: layout.qrHeight,
+              qrX: layout.qrX * (cellW / cardW),
+              qrY: layout.qrY * (cellH / cardH),
+              qrWidth: layout.qrWidth * (cellW / cardW),
+              qrHeight: layout.qrHeight * (cellH / cardH),
               bgType: layout.bgType,
               qrColor: layout.qrColor,
               innerPaddingPx: layout.innerPaddingPx,
               pageBg: layout.pageBg,
               pageBgColor: layout.pageBgColor,
               showTemplateImage: layout.showTemplateImage,
+              templateLayer: layout.templateLayer,
               cardWidth: cellW,
               cardHeight: cellH,
             });
@@ -313,10 +329,12 @@ export async function exportBulkSheetAsPng(
       const cellY = row * cellHeightPx;
 
       const activeQrUrl = qrItem ? getActiveQrUrlForBulkItem(qrItem, layout) : null;
-      const hasCardToRender = activeQrUrl || (template.url && layout.showTemplateImage !== false);
+      const hasCardToRender =
+        activeQrUrl ||
+        (template.url && layout.showTemplateImage !== false && slotHasCard(qrItem, bulkQrs, customQr));
 
       if (hasCardToRender) {
-        const cacheKey = qrItem ? qrItem.id : '__empty_template_card__';
+        const cacheKey = activeQrUrl && qrItem ? qrItem.id : '__empty_template_card__';
         let cellCanvas = renderedCardCache.get(cacheKey);
 
         if (!cellCanvas) {
@@ -324,16 +342,17 @@ export async function exportBulkSheetAsPng(
             dpi: 150,
             templateUrl: template.url,
             activeQrImageUrl: activeQrUrl,
-            qrX: layout.qrX,
-            qrY: layout.qrY,
-            qrWidth: layout.qrWidth,
-            qrHeight: layout.qrHeight,
+            qrX: layout.qrX * (cellWidthInch / cardW),
+            qrY: layout.qrY * (cellHeightInch / cardH),
+            qrWidth: layout.qrWidth * (cellWidthInch / cardW),
+            qrHeight: layout.qrHeight * (cellHeightInch / cardH),
             bgType: layout.bgType,
             qrColor: layout.qrColor,
             innerPaddingPx: layout.innerPaddingPx,
             pageBg: layout.pageBg,
             pageBgColor: layout.pageBgColor,
             showTemplateImage: layout.showTemplateImage,
+            templateLayer: layout.templateLayer,
             cardWidth: cellWidthInch,
             cardHeight: cellHeightInch,
           });

@@ -48,6 +48,8 @@ const PRESETS_KEY = 'qr_template_studio_saved_presets';
 const SHEET_GRIDS_KEY = 'qr_template_studio_sheet_grids';
 const ACTIVE_CARD_OPTION_KEY = 'qr_template_studio_active_card_option';
 const CARD_OPTION_SIZES_KEY = 'qr_template_studio_card_option_sizes';
+const TEMPLATE_LAYERS_KEY = 'qr_template_studio_template_layers';
+const SHOW_SAMPLE_QR_KEY = 'qr_template_studio_show_sample_qr';
 
 function getInitialState(): SavedLayoutState {
   try {
@@ -175,6 +177,7 @@ export default function App() {
   const [activeCardOption, setActiveCardOption] = useState<CardOptionId>(getInitialActiveCardOption);
   const [cardOptionSizes, setCardOptionSizes] = useState<Record<CardOptionId, CardOptionSize>>(getInitialCardOptionSizes);
 
+
   // Card physical dimensions (in inches) of the active option - customizable
   const [cardWidth, setCardWidth] = useState<number>(cardOptionSizes[activeCardOption].cardWidth);
   const [cardHeight, setCardHeight] = useState<number>(cardOptionSizes[activeCardOption].cardHeight);
@@ -195,7 +198,32 @@ export default function App() {
   const [pageBg, setPageBg] = useState<PageBgType>(initialSaved.pageBg || 'white');
   const [pageBgColor, setPageBgColor] = useState<string>(initialSaved.pageBgColor || '#ffffff');
   const [showTemplateImage, setShowTemplateImage] = useState<boolean>(initialSaved.showTemplateImage ?? true);
-  const [templateLayer, setTemplateLayer] = useState<'back' | 'front'>(initialSaved.templateLayer || 'back');
+  // Template stacking order is kept per card option, so Option 1's FRONT setting can't hide Option 2's QRs
+  type TemplateLayer = 'back' | 'front';
+  const [templateLayers, setTemplateLayers] = useState<Record<CardOptionId, TemplateLayer>>(() => {
+    try {
+      const raw = localStorage.getItem(TEMPLATE_LAYERS_KEY);
+      if (raw) return { option1: 'back', option2: 'back', ...JSON.parse(raw) };
+    } catch (e) {
+      console.error('Failed to load template layers from localStorage:', e);
+    }
+    // First run: Option 1 keeps the layer the user already had
+    return { option1: initialSaved.templateLayer || 'back', option2: 'back' };
+  });
+  const templateLayer = templateLayers[activeCardOption];
+  const setTemplateLayer = (next: TemplateLayer | ((prev: TemplateLayer) => TemplateLayer)) => {
+    setTemplateLayers((prev) => {
+      const value = typeof next === 'function' ? next(prev[activeCardOption]) : next;
+      if (value === prev[activeCardOption]) return prev;
+      const updated = { ...prev, [activeCardOption]: value };
+      try {
+        localStorage.setItem(TEMPLATE_LAYERS_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to persist template layers:', e);
+      }
+      return updated;
+    });
+  };
 
   // Presets list
   const [presets, setPresets] = useState<PresetItem[]>(getInitialPresets);
@@ -203,6 +231,24 @@ export default function App() {
   // Custom Uploaded QR State (PDF or Image)
   const [customQr, setCustomQr] = useState<UploadedQrInfo | null>(null);
   const [isProcessingQr, setIsProcessingQr] = useState<boolean>(false);
+  // Sample QR placeholder shown when no QR file is uploaded (can be turned off)
+  const [showSampleQr, setShowSampleQr] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(SHOW_SAMPLE_QR_KEY) !== 'false';
+    } catch {
+      return true;
+    }
+  });
+  const handleToggleShowSampleQr = () => {
+    setShowSampleQr((prev) => {
+      try {
+        localStorage.setItem(SHOW_SAMPLE_QR_KEY, String(!prev));
+      } catch (e) {
+        console.error('Failed to persist sample QR setting:', e);
+      }
+      return !prev;
+    });
+  };
 
   // App Mode: 'single' (Single Card Designer) vs 'bulk' (132 QR Sheet)
   const [mode, setMode] = useState<AppMode>('single');
@@ -1117,6 +1163,7 @@ export default function App() {
             qrColor={qrColor}
             activeQrImageUrl={activeQrImageUrl}
             innerPaddingPx={innerPaddingPx}
+            showSampleQr={showSampleQr}
             onStartDrag={handleStartDrag}
           />
         ) : (
@@ -1138,6 +1185,7 @@ export default function App() {
               pageBg,
               pageBgColor,
               showTemplateImage,
+              templateLayer,
             }}
             template={template}
             bulkQrs={bulkQrs}
@@ -1167,6 +1215,8 @@ export default function App() {
           isProcessingQr={isProcessingQr}
           onOpenQrPicker={() => qrFileInputRef.current?.click()}
           onResetToSampleQr={handleResetToSampleQr}
+          showSampleQr={showSampleQr}
+          onToggleShowSampleQr={handleToggleShowSampleQr}
           presets={presets}
           onSavePreset={handleSavePreset}
           onApplyPreset={handleApplyPreset}
@@ -1293,6 +1343,7 @@ export default function App() {
           pageBg,
           pageBgColor,
           showTemplateImage,
+          templateLayer,
         }}
         template={template}
         bulkQrs={bulkQrs}

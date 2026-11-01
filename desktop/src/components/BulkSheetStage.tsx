@@ -11,7 +11,7 @@ import {
   type BulkSheetConfig,
   type UploadedQrInfo,
 } from '../types';
-import { getQrItemForSlot, getActiveQrUrlForBulkItem } from '../utils/bulkExportUtils';
+import { getQrItemForSlot, getActiveQrUrlForBulkItem, slotHasCard } from '../utils/bulkExportUtils';
 import { Maximize2, Sparkles, FileImage, FileText } from 'lucide-react';
 
 interface BulkSheetStageProps {
@@ -62,6 +62,9 @@ export const BulkSheetStage: React.FC<BulkSheetStageProps> = ({
 
   const cellW = Number((sheetW / cols).toFixed(4));
   const cellH = Number((sheetH / rows).toFixed(4));
+  // Slots can differ from the card size (sheet presets); scale the QR with the template so it stays in place
+  const scaleX = cellW / cardW;
+  const scaleY = cellH / cardH;
 
   const totalSheets = Math.max(1, Math.ceil(bulkQrs.length / totalSlotsPerSheet));
   const activeSheet = config.activeSheetIndex;
@@ -110,6 +113,11 @@ export const BulkSheetStage: React.FC<BulkSheetStageProps> = ({
             {bulkQrs.length === 0 && customQr && (
               <span className="ml-1 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px]">
                 Showing Single Card QR (Repeated)
+              </span>
+            )}
+            {template.url && layout.templateLayer === 'front' && (
+              <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px]">
+                Template in FRONT (may cover QRs)
               </span>
             )}
           </div>
@@ -180,11 +188,12 @@ export const BulkSheetStage: React.FC<BulkSheetStageProps> = ({
                   title={`Slot #${globalSlotIndex + 1} (Col ${col + 1}, Row ${row + 1})${qrItem ? `: ${qrItem.name}` : ''}`}
                 >
                   {/* Background Template Image - shown on all card cells if configured */}
-                  {template.url && layout.showTemplateImage !== false && (
+                  {template.url && layout.showTemplateImage !== false && slotHasCard(qrItem, bulkQrs, customQr) && (
                     <img
                       src={template.url}
                       alt="Template"
                       className="absolute inset-0 w-full h-full object-fill pointer-events-none block select-none"
+                      style={{ zIndex: layout.templateLayer === 'front' ? 2 : 0 }}
                       draggable={false}
                     />
                   )}
@@ -200,11 +209,12 @@ export const BulkSheetStage: React.FC<BulkSheetStageProps> = ({
                           : 'bg-transparent'
                       }`}
                       style={{
-                        left: `${layout.qrX}in`,
-                        top: `${layout.qrY}in`,
-                        width: `${layout.qrWidth}in`,
-                        height: `${layout.qrHeight}in`,
+                        left: `${layout.qrX * scaleX}in`,
+                        top: `${layout.qrY * scaleY}in`,
+                        width: `${layout.qrWidth * scaleX}in`,
+                        height: `${layout.qrHeight * scaleY}in`,
                         boxSizing: 'border-box',
+                        zIndex: 1,
                       }}
                     >
                       <div

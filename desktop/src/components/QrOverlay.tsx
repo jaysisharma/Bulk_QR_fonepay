@@ -9,6 +9,8 @@ interface QrOverlayProps {
   qrColor: string;
   activeQrImageUrl: string | null;
   innerPaddingPx: number;
+  /** false shows an empty (non-printing) outline instead of the sample QR when no QR is uploaded */
+  showSample?: boolean;
   onStartDrag: (
     e: React.MouseEvent,
     mode: 'move' | 'resize-se' | 'resize-e' | 'resize-s'
@@ -24,11 +26,15 @@ export const QrOverlay: React.FC<QrOverlayProps> = ({
   qrColor,
   activeQrImageUrl,
   innerPaddingPx,
+  showSample = true,
   onStartDrag,
 }) => {
+  const isEmpty = !activeQrImageUrl && !showSample;
   return (
     <div
-      className={`absolute group cursor-move z-20 flex flex-col items-center justify-center outline outline-2 outline-indigo-500/90 print:outline-none shadow-2xl print:shadow-none ${bgType === 'white'
+      className={`absolute group cursor-move z-20 flex flex-col items-center justify-center outline outline-2 outline-indigo-500/90 print:outline-none shadow-2xl print:shadow-none ${isEmpty
+        ? 'bg-transparent outline-dashed !outline-slate-400/80'
+        : bgType === 'white'
         ? 'bg-white'
         : bgType === 'black'
           ? 'bg-black'
@@ -62,6 +68,11 @@ export const QrOverlay: React.FC<QrOverlayProps> = ({
             }}
             draggable={false}
           />
+        </div>
+      ) : isEmpty ? (
+        /* No QR: empty box so the position can still be adjusted; nothing prints */
+        <div className="w-full h-full flex items-center justify-center text-[10px] font-mono text-slate-400 print:hidden print-hide pointer-events-none">
+          No QR
         </div>
       ) : (
         /* SVG Sample QR Code (Stretches exactly with width and height independently) */
